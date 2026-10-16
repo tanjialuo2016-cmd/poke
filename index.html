@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>我的 2D 肉鴿小遊戲 - 寶可夢圖片版</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+        #gameContainer {
+            position: relative;
+        }
+        canvas {
+            border: 2px solid #555;
+            background-color: #1b2631;
+        }
+        .uiOverlay {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.95);
+            border: 3px solid #FFD700;
+            padding: 25px;
+            text-align: center;
+            border-radius: 12px;
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.5);
+            z-index: 10;
+            min-width: 320px;
+        }
+        .optionBtn {
+            display: block;
+            width: 260px;
+            margin: 12px auto;
+            padding: 12px;
+            background-color: #333;
+            color: white;
+            border: 2px solid #666;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .optionBtn:hover {
+            background-color: #555;
+            border-color: #FFD700;
+        }
+        .upgradeRow {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 12px 0;
+            background: #222;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        .upgradeBtn {
+            padding: 8px 12px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .upgradeBtn:hover {
+            background-color: #2ecc71;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1000" height="700"></canvas>
+        
+        <!-- 1. 主選單 (Start Menu) -->
+        <div id="mainMenu" class="uiOverlay" style="display: block;">
+            <h1 style="color: #FFD700; margin-top: 0; font-size: 32px;">⚡ 寶可夢肉鴿大冒險</h1>
+            <p style="color: #aaa; margin-bottom: 25px;">累積金幣，強化屬性，挑戰極限！</p>
+            <p style="color: #FFD700; font-size: 18px;">💰 當前金幣: <span id="menuGoldDisplay">0</span></p>
+            <button class="optionBtn" style="background-color: #1e8449; border-color: #2ecc71;" onclick="startGame()">▶ 開始遊戲 (Start)</button>
+            <button class="optionBtn" onclick="openUpgradeShop()">🛠 屬性強化 (Upgrade)</button>
+        </div>
+
+        <!-- 2. 局外強化商店 (Upgrade Shop) -->
+        <div id="upgradeShop" class="uiOverlay">
+            <h2 style="color: #FFD700; margin-top: 0;">🛠 局外屬性強化</h2>
+            <p style="color: #FFD700; font-size: 18px;">💰 金幣: <span id="shopGoldDisplay">0</span></p>
+            
+            <div class="upgradeRow">
+                <div style="text-align: left;">
+                    <div>❤️ 生命上限 (+20)</div>
+                    <small style="color: #aaa;">當前: <span id="hpStat">100</span></small>
+                </div>
+                <button class="upgradeBtn" onclick="buyUpgrade('hp')">升級 (<span id="hpCost">50</span> 💰)</button>
+            </div>
+
+            <div class="upgradeRow">
+                <div style="text-align: left;">
+                    <div>⚡ 基礎移速 (+0.5)</div>
+                    <small style="color: #aaa;">當前: <span id="speedStat">2.0</span></small>
+                </div>
+                <button class="upgradeBtn" onclick="buyUpgrade('speed')">升級 (<span id="speedCost">50</span> 💰)</button>
+            </div>
+
+            <div class="upgradeRow">
+                <div style="text-align: left;">
+                    <div>🔥 基礎攻速 (-3幀冷卻)</div>
+                    <small style="color: #aaa;">當前冷卻: <span id="rateStat">40</span></small>
+                </div>
+                <button class="upgradeBtn" onclick="buyUpgrade('rate')">升級 (<span id="rateCost">50</span> 💰)</button>
+            </div>
+
+            <div class="upgradeRow">
+                <div style="text-align: left;">
+                    <div>🧲 基礎磁力範圍 (+25)</div>
+                    <small style="color: #aaa;">當前範圍: <span id="magnetStat">80</span></small>
+                </div>
+                <button class="upgradeBtn" onclick="buyUpgrade('magnet')">升級 (<span id="magnetCost">50</span> 💰)</button>
+            </div>
+
+            <button class="optionBtn" style="margin-top: 20px;" onclick="closeUpgradeShop()">🔙 返回主選單</button>
+        </div>
+
+        <!-- 3. 局內升級選單 -->
+        <div id="levelUpMenu" class="uiOverlay">
+            <h2 style="color: #FFD700; margin-top: 0;">🎉 等級提升！</h2>
+            <p>請選擇一個強化能力：</p>
+            <div id="upgradeOptionsContainer"></div>
+        </div>
+
+        <!-- 4. Game Over 結算畫面 -->
+        <div id="gameOverMenu" class="uiOverlay" style="border-color: #FF4444; box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);">
+            <h2 style="color: #FF4444; margin-top: 0;">💀 遊戲結束</h2>
+            <p id="finalScoreText">你達到了等級 1！</p>
+            <p style="color: #FFD700;">本次獲得金幣: +<span id="earnedGoldText">0</span> 💰</p>
+            <button class="optionBtn" style="border-color: #FF4444;" onclick="returnToMainMenu()">🏠 返回主選單</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const mainMenu = document.getElementById('mainMenu');
+        const upgradeShop = document.getElementById('upgradeShop');
+        const levelUpMenu = document.getElementById('levelUpMenu');
+        const gameOverMenu = document.getElementById('gameOverMenu');
+        const finalScoreText = document.getElementById('finalScoreText');
+        const earnedGoldText = document.getElementById('earnedGoldText');
+        const upgradeOptionsContainer = document.getElementById('upgradeOptionsContainer');
+
+        const WORLD_WIDTH = 3000;
+        const WORLD_HEIGHT = 3000;
+
+        let gameState = 'MENU';
+
+        // --- 寶可夢圖片資源載入 ---
+        const images = {
+            player: new Image(),
+            enemy: new Image(),
+            boss: new Image(),
+            ball: new Image()
+        };
+
+        images.player.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png';  // 皮卡丘
+        images.enemy.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png';   // 小火龍
+        images.boss.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png';    // 噴火龍
+        images.ball.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png'; // 精靈球
+
+        // 局外永久存檔資料
+        let savedData = {
+            gold: 0,
+            baseHp: 100,
+            baseSpeed: 2,
+            baseShootRate: 40,
+            baseMagnetRadius: 80,
+            hpLevel: 0,
+            speedLevel: 0,
+            rateLevel: 0,
+            magnetLevel: 0
+        };
+
+        let player = {};
+        let sessionGold = 0;
+
+        const camera = { x: 0, y: 0 };
+        let bullets = [];
+        let enemies = [];
+        let gems = [];
+
+        const keys = {};
+        window.addEventListener('keydown', (e) => keys[e.key] = true);
+        window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+        let enemySpawnTimer = 0;
+
+        function updateUI() {
+            document.getElementById('menuGoldDisplay').innerText = savedData.gold;
+            document.getElementById('shopGoldDisplay').innerText = savedData.gold;
+
+            document.getElementById('hpStat').innerText = savedData.baseHp;
+            document.getElementById('speedStat').innerText = savedData.baseSpeed.toFixed(1);
+            document.getElementById('rateStat').innerText = savedData.baseShootRate;
+            document.getElementById('magnetStat').innerText = savedData.baseMagnetRadius;
+
+            document.getElementById('hpCost').innerText = (savedData.hpLevel + 1) * 50;
+            document.getElementById('speedCost').innerText = (savedData.speedLevel + 1) * 50;
+            document.getElementById('rateCost').innerText = (savedData.rateLevel + 1) * 50;
+            document.getElementById('magnetCost').innerText = (savedData.magnetLevel + 1) * 50;
+        }
+
+        function openUpgradeShop() {
+            mainMenu.style.display = 'none';
+            upgradeShop.style.display = 'block';
+            updateUI();
+        }
+
+        function closeUpgradeShop() {
+            upgradeShop.style.display = 'none';
+            mainMenu.style.display = 'block';
+            updateUI();
+        }
+
+        function buyUpgrade(type) {
+            if (type === 'hp') {
+                const cost = (savedData.hpLevel + 1) * 50;
+                if (savedData.gold >= cost) {
+                    savedData.gold -= cost;
+                    savedData.baseHp += 20;
+                    savedData.hpLevel++;
+                }
+            } else if (type === 'speed') {
+                const cost = (savedData.speedLevel + 1) * 50;
+                if (savedData.gold >= cost) {
+                    savedData.gold -= cost;
+                    savedData.baseSpeed += 0.5;
+                    savedData.speedLevel++;
+                }
+            } else if (type === 'rate') {
+                const cost = (savedData.rateLevel + 1) * 50;
+                if (savedData.gold >= cost && savedData.baseShootRate > 10) {
+                    savedData.gold -= cost;
+                    savedData.baseShootRate -= 3;
+                    savedData.rateLevel++;
+                }
+            } else if (type === 'magnet') {
+                const cost = (savedData.magnetLevel + 1) * 50;
+                if (savedData.gold >= cost) {
+                    savedData.gold -= cost;
+                    savedData.baseMagnetRadius += 25;
+                    savedData.magnetLevel++;
+                }
+            }
+            updateUI();
+        }
+
+        function startGame() {
+            mainMenu.style.display = 'none';
+            upgradeShop.style.display = 'none';
+            gameOverMenu.style.display = 'none';
+
+            player = {
+                x: WORLD_WIDTH / 2,
+                y: WORLD_HEIGHT / 2,
+                radius: 20, // 略微放大角色碰撞範圍以符合圖片
+                speed: savedData.baseSpeed,
+                shootCooldown: 0,
+                shootRate: savedData.baseShootRate,
+                bulletCount: 1,
+                magnetRadius: savedData.baseMagnetRadius,
+                level: 1,
+                exp: 0,
+                maxExp: 5,
+                hp: savedData.baseHp,
+                maxHp: savedData.baseHp,
+                invincibleTimer: 0
+            };
+
+            bullets = [];
+            enemies = [];
+            gems = [];
+            sessionGold = 0;
+            enemySpawnTimer = 0;
+
+            gameState = 'PLAYING';
+            gameLoop();
+        }
+
+        function spawnEnemy() {
+            const spawnAngle = Math.random() * Math.PI * 2;
+            const spawnDist = 600 + Math.random() * 200;
+            let x = player.x + Math.cos(spawnAngle) * spawnDist;
+            let y = player.y + Math.sin(spawnAngle) * spawnDist;
+
+            x = Math.max(20, Math.min(WORLD_WIDTH - 20, x));
+            y = Math.max(20, Math.min(WORLD_HEIGHT - 20, y));
+
+            const enemyHp = 3 + Math.floor((player.level - 1) * 1.5);
+
+            enemies.push({
+                x: x, y: y,
+                radius: 18,
+                speed: 1.5,
+                hp: enemyHp,
+                maxHp: enemyHp,
+                isBoss: false,
+                damage: 15
+            });
+        }
+
+        function spawnBoss() {
+            const spawnAngle = Math.random() * Math.PI * 2;
+            let x = player.x + Math.cos(spawnAngle) * 500;
+            let y = player.y + Math.sin(spawnAngle) * 500;
+
+            const bossHp = 100 + player.level * 30;
+
+            enemies.push({
+                x: x, y: y,
+                radius: 45,
+                speed: 0.8,
+                hp: bossHp,
+                maxHp: bossHp,
+                isBoss: true,
+                damage: 35
+            });
+        }
+
+        function autoShoot() {
+            if (enemies.length === 0) return;
+
+            let closestEnemy = null;
+            let minDistance = Infinity;
+
+            enemies.forEach(enemy => {
+                const dist = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closestEnemy = enemy;
+                }
+            });
+
+            if (closestEnemy) {
+                const baseAngle = Math.atan2(closestEnemy.y - player.y, closestEnemy.x - player.x);
+                const spreadAngle = 0.2; 
+                const startAngle = baseAngle - ((player.bulletCount - 1) * spreadAngle) / 2;
+
+                for (let i = 0; i < player.bulletCount; i++) {
+                    const angle = startAngle + i * spreadAngle;
+                    bullets.push({
+                        x: player.x,
+                        y: player.y,
+                        vx: Math.cos(angle) * 8,
+                        vy: Math.sin(angle) * 8,
+                        radius: 5,
+                        color: '#00FFFF'
+                    });
+                }
+            }
+        }
+
+        function showLevelUpMenu() {
+            const allUpgrades = [
+                { id: 'speed', text: '⚡ 增加移動速度 (+1)', action: () => player.speed += 1 },
+                { id: 'rate', text: '🔥 提升發射速度 (-5幀冷卻)', action: () => player.shootRate = Math.max(8, player.shootRate - 5) },
+                { id: 'multi', text: '🏹 多重射擊 (+1 子彈)', action: () => player.bulletCount += 1 },
+                { id: 'magnet', text: '🧲 擴大拾取範圍 (+30 磁力)', action: () => player.magnetRadius += 30 }
+            ];
+
+            const shuffled = allUpgrades.sort(() => 0.5 - Math.random()).slice(0, 3);
+            
+            upgradeOptionsContainer.innerHTML = '';
+            shuffled.forEach(upg => {
+                const btn = document.createElement('button');
+                btn.className = 'optionBtn';
+                btn.innerText = upg.text;
+                btn.onclick = () => {
+                    upg.action();
+                    levelUpMenu.style.display = 'none';
+                    gameState = 'PLAYING';
+                    gameLoop();
+                };
+                upgradeOptionsContainer.appendChild(btn);
+            });
+
+            levelUpMenu.style.display = 'block';
+        }
+
+        function addExp(amount) {
+            player.exp += amount;
+            sessionGold += 10;
+
+            if (player.exp >= player.maxExp) {
+                player.exp -= player.maxExp;
+                player.level += 1;
+                player.maxExp = Math.floor(player.maxExp * 1.5);
+                
+                if (player.level % 5 === 0) {
+                    spawnBoss();
+                }
+
+                gameState = 'PAUSED';
+                showLevelUpMenu();
+            }
+        }
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            savedData.gold += sessionGold;
+
+            finalScoreText.innerText = `你在大世界戰場存活到了等級 ${player.level}！`;
+            earnedGoldText.innerText = sessionGold;
+            gameOverMenu.style.display = 'block';
+        }
+
+        function returnToMainMenu() {
+            gameOverMenu.style.display = 'none';
+            mainMenu.style.display = 'block';
+            gameState = 'MENU';
+            updateUI();
+            drawMenuBackground();
+        }
+
+        function drawMenuBackground() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#1b2631";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function gameLoop() {
+            if (gameState !== 'PLAYING') return;
+
+            // --- 玩家移動 ---
+            if ((keys['w'] || keys['W'] || keys['ArrowUp']) && player.y - player.radius > 0) player.y -= player.speed;
+            if ((keys['s'] || keys['S'] || keys['ArrowDown']) && player.y + player.radius < WORLD_HEIGHT) player.y += player.speed;
+            if ((keys['a'] || keys['A'] || keys['ArrowLeft']) && player.x - player.radius > 0) player.x -= player.speed;
+            if ((keys['d'] || keys['D'] || keys['ArrowRight']) && player.x + player.radius < WORLD_WIDTH) player.x += player.speed;
+
+            camera.x = player.x - canvas.width / 2;
+            camera.y = player.y - canvas.height / 2;
+
+            if (player.invincibleTimer > 0) {
+                player.invincibleTimer--;
+            }
+
+            // --- 發射子彈 ---
+            player.shootCooldown++;
+            if (player.shootCooldown >= player.shootRate) {
+                autoShoot();
+                player.shootCooldown = 0;
+            }
+
+            // --- 生成敵人 ---
+            enemySpawnTimer++;
+            if (enemySpawnTimer >= 50) {
+                spawnEnemy();
+                enemySpawnTimer = 0;
+            }
+
+            // --- 更新子彈 ---
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+                if (Math.hypot(b.x - player.x, b.y - player.y) > 1000) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // --- 更新敵人 ---
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const e = enemies[i];
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(angle) * e.speed;
+                e.y += Math.sin(angle) * e.speed;
+
+                const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
+                if (distToPlayer < player.radius + e.radius && player.invincibleTimer === 0) {
+                    player.hp -= e.damage;
+                    player.invincibleTimer = 30;
+
+                    if (player.hp <= 0) {
+                        player.hp = 0;
+                        triggerGameOver();
+                        return;
+                    }
+                }
+
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    const b = bullets[j];
+                    if (Math.hypot(b.x - e.x, b.y - e.y) < b.radius + e.radius) {
+                        e.hp -= 1;
+                        bullets.splice(j, 1);
+
+                        if (e.hp <= 0) {
+                            if (e.isBoss) {
+                                for (let k = 0; k < 10; k++) {
+                                    gems.push({
+                                        x: e.x + (Math.random() - 0.5) * 40,
+                                        y: e.y + (Math.random() - 0.5) * 40,
+                                        radius: 12
+                                    });
+                                }
+                            } else {
+                                gems.push({ x: e.x, y: e.y, radius: 10 });
+                            }
+                            enemies.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // --- 磁鐵吸附經驗寶石邏輯 ---
+            for (let i = gems.length - 1; i >= 0; i--) {
+                const g = gems[i];
+                const distToPlayer = Math.hypot(player.x - g.x, player.y - g.y);
+
+                if (distToPlayer < player.magnetRadius) {
+                    const angle = Math.atan2(player.y - g.y, player.x - g.x);
+                    const magnetSpeed = 6;
+                    g.x += Math.cos(angle) * magnetSpeed;
+                    g.y += Math.sin(angle) * magnetSpeed;
+                }
+
+                if (distToPlayer < player.radius + g.radius) {
+                    gems.splice(i, 1);
+                    addExp(1);
+                }
+            }
+
+            // --- 繪製畫面 ---
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            // 背景網格
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 1;
+            const gridSize = 100;
+            for (let x = 0; x <= WORLD_WIDTH; x += gridSize) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, WORLD_HEIGHT); ctx.stroke();
+            }
+            for (let y = 0; y <= WORLD_HEIGHT; y += gridSize) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WORLD_WIDTH, y); ctx.stroke();
+            }
+
+            // 邊界
+            ctx.strokeStyle = '#FF0000';
+            ctx.lineWidth = 5;
+            ctx.strokeRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+            // 1. 畫精靈球經驗物
+            gems.forEach(g => {
+                if (images.ball.complete && images.ball.naturalWidth !== 0) {
+                    ctx.drawImage(images.ball, g.x - 12, g.y - 12, 24, 24);
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(g.x, g.y, g.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#00FF66';
+                    ctx.fill();
+                    ctx.closePath();
+                }
+            });
+
+            // 2. 畫磁鐵半透明光圈
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.magnetRadius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.closePath();
+
+            // 3. 畫玩家（皮卡丘）
+            if (player.invincibleTimer % 6 < 3) {
+                if (images.player.complete && images.player.naturalWidth !== 0) {
+                    ctx.drawImage(images.player, player.x - 30, player.y - 30, 60, 60);
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#FFD700';
+                    ctx.fill();
+                    ctx.closePath();
+                }
+            }
+
+            // 4. 畫子彈
+            bullets.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fillStyle = b.color;
+                ctx.fill();
+                ctx.closePath();
+            });
+
+            // 5. 畫敵人（小火龍 / 噴火龍 Boss）
+            enemies.forEach(e => {
+                const img = e.isBoss ? images.boss : images.enemy;
+                const imgSize = e.isBoss ? 110 : 50;
+
+                if (img.complete && img.naturalWidth !== 0) {
+                    ctx.drawImage(img, e.x - imgSize / 2, e.y - imgSize / 2, imgSize, imgSize);
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = e.isBoss ? '#9932CC' : '#FF4444';
+                    ctx.fill();
+                    ctx.closePath();
+                }
+
+                // 畫血條
+                const barWidth = e.isBoss ? 60 : 28;
+                const barHeight = e.isBoss ? 6 : 4;
+                const barOffsetY = e.radius + (e.isBoss ? 15 : 10);
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(e.x - barWidth / 2, e.y - barOffsetY, barWidth, barHeight);
+                ctx.fillStyle = e.isBoss ? '#00FF00' : '#32CD32';
+                ctx.fillRect(e.x - barWidth / 2, e.y - barOffsetY, Math.max(0, (e.hp / e.maxHp) * barWidth), barHeight);
+            });
+
+            ctx.restore();
+
+            // --- 畫 UI ---
+            // 1. 血量條
+            ctx.fillStyle = "white";
+            ctx.font = "14px sans-serif";
+            ctx.fillText(`血量: ${player.hp} / ${player.maxHp}`, 15, 25);
+            ctx.fillStyle = "#444";
+            ctx.fillRect(15, 30, 200, 10);
+            ctx.fillStyle = "#FF4444";
+            ctx.fillRect(15, 30, Math.max(0, (player.hp / player.maxHp) * 200), 10);
+
+            // 2. 等級經驗條
+            ctx.fillStyle = "white";
+            ctx.fillText(`等級: ${player.level}`, 15, 60);
+            ctx.fillStyle = "#444";
+            ctx.fillRect(15, 65, 200, 10);
+            ctx.fillStyle = "#00FF66";
+            ctx.fillRect(15, 65, (player.exp / player.maxExp) * 200, 10);
+
+            // 3. 當局金幣與磁力顯示
+            ctx.fillStyle = "#FFD700";
+            ctx.font = "14px sans-serif";
+            ctx.fillText(`💰 金幣: ${sessionGold}`, 15, 95);
+            ctx.fillStyle = "#00FFFF";
+            ctx.fillText(`🧲 磁力範圍: ${player.magnetRadius}`, 15, 115);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        drawMenuBackground();
+        updateUI();
+    </script>
+</body>
+</html>

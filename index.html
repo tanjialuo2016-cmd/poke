@@ -2,25 +2,46 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>我的 2D 肉鴿小遊戲 - 寶可夢圖片版</title>
+    <!-- iOS / Android のズーム・スクロール防止レスポンシブ設定 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>寶可夢肉鴿大冒險</title>
     <style>
-        body {
+        * {
+            box-sizing: border-box;
+            touch-action: none; /* スマホのスクロールやピンチズームを完全無効化 */
+            -webkit-touch-callout: none; /* iOS の長押しメニュー無効化 */
+            -webkit-user-select: none;   /* テキスト選択無効化 */
+            user-select: none;
+        }
+        html, body {
             margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
             background-color: #111;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            color: white;
-            font-family: sans-serif;
             overflow: hidden;
+            font-family: sans-serif;
+            color: white;
         }
         #gameContainer {
             position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         canvas {
             border: 2px solid #555;
             background-color: #1b2631;
+            display: block;
+            /* 画面サイズに合わせて自動スケーリング（全端末対応） */
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
         }
         .uiOverlay {
             display: none;
@@ -30,23 +51,24 @@
             transform: translate(-50%, -50%);
             background-color: rgba(0, 0, 0, 0.95);
             border: 3px solid #FFD700;
-            padding: 25px;
+            padding: 20px;
             text-align: center;
             border-radius: 12px;
             box-shadow: 0 0 25px rgba(255, 215, 0, 0.5);
             z-index: 10;
-            min-width: 320px;
+            width: 85%;
+            max-width: 380px;
         }
         .optionBtn {
             display: block;
-            width: 260px;
-            margin: 12px auto;
+            width: 100%;
+            margin: 10px auto;
             padding: 12px;
             background-color: #333;
             color: white;
             border: 2px solid #666;
             border-radius: 6px;
-            font-size: 16px;
+            font-size: 15px;
             cursor: pointer;
             transition: 0.2s;
         }
@@ -58,14 +80,15 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin: 12px 0;
+            margin: 10px 0;
             background: #222;
-            padding: 10px 15px;
+            padding: 8px 12px;
             border-radius: 8px;
             border: 1px solid #444;
+            font-size: 14px;
         }
         .upgradeBtn {
-            padding: 8px 12px;
+            padding: 6px 10px;
             background-color: #27ae60;
             color: white;
             border: none;
@@ -73,36 +96,33 @@
             cursor: pointer;
             font-weight: bold;
         }
-        .upgradeBtn:hover {
-            background-color: #2ecc71;
-        }
     </style>
 </head>
 <body>
 
     <div id="gameContainer">
-        <canvas id="gameCanvas" width="1000" height="700"></canvas>
+        <canvas id="gameCanvas"></canvas>
         
         <!-- 1. 主選單 (Start Menu) -->
         <div id="mainMenu" class="uiOverlay" style="display: block;">
-            <h1 style="color: #FFD700; margin-top: 0; font-size: 32px;">⚡ 寶可夢肉鴿大冒險</h1>
-            <p style="color: #aaa; margin-bottom: 25px;">累積金幣，強化屬性，挑戰極限！</p>
-            <p style="color: #FFD700; font-size: 18px;">💰 當前金幣: <span id="menuGoldDisplay">0</span></p>
+            <h2 style="color: #FFD700; margin-top: 0;">⚡ 寶可夢肉鴿大冒險</h2>
+            <p style="color: #aaa; font-size: 13px;">累積金幣，強化屬性，挑戰極限！</p>
+            <p style="color: #FFD700; font-size: 16px;">💰 當前金幣: <span id="menuGoldDisplay">0</span></p>
             <button class="optionBtn" style="background-color: #1e8449; border-color: #2ecc71;" onclick="startGame()">▶ 開始遊戲 (Start)</button>
             <button class="optionBtn" onclick="openUpgradeShop()">🛠 屬性強化 (Upgrade)</button>
         </div>
 
-        <!-- 2. 局外強化商店 (Upgrade Shop) -->
+        <!-- 2. 局外強化商店 -->
         <div id="upgradeShop" class="uiOverlay">
-            <h2 style="color: #FFD700; margin-top: 0;">🛠 局外屬性強化</h2>
-            <p style="color: #FFD700; font-size: 18px;">💰 金幣: <span id="shopGoldDisplay">0</span></p>
+            <h3 style="color: #FFD700; margin-top: 0;">🛠 局外屬性強化</h3>
+            <p style="color: #FFD700; font-size: 15px;">💰 金幣: <span id="shopGoldDisplay">0</span></p>
             
             <div class="upgradeRow">
                 <div style="text-align: left;">
                     <div>❤️ 生命上限 (+20)</div>
                     <small style="color: #aaa;">當前: <span id="hpStat">100</span></small>
                 </div>
-                <button class="upgradeBtn" onclick="buyUpgrade('hp')">升級 (<span id="hpCost">50</span> 💰)</button>
+                <button class="upgradeBtn" onclick="buyUpgrade('hp')">升級 (<span id="hpCost">50</span>💰)</button>
             </div>
 
             <div class="upgradeRow">
@@ -110,40 +130,40 @@
                     <div>⚡ 基礎移速 (+0.5)</div>
                     <small style="color: #aaa;">當前: <span id="speedStat">2.0</span></small>
                 </div>
-                <button class="upgradeBtn" onclick="buyUpgrade('speed')">升級 (<span id="speedCost">50</span> 💰)</button>
+                <button class="upgradeBtn" onclick="buyUpgrade('speed')">升級 (<span id="speedCost">50</span>💰)</button>
             </div>
 
             <div class="upgradeRow">
                 <div style="text-align: left;">
-                    <div>🔥 基礎攻速 (-3幀冷卻)</div>
-                    <small style="color: #aaa;">當前冷卻: <span id="rateStat">40</span></small>
+                    <div>🔥 基礎攻速 (-3幀)</div>
+                    <small style="color: #aaa;">冷卻: <span id="rateStat">40</span></small>
                 </div>
-                <button class="upgradeBtn" onclick="buyUpgrade('rate')">升級 (<span id="rateCost">50</span> 💰)</button>
+                <button class="upgradeBtn" onclick="buyUpgrade('rate')">升級 (<span id="rateCost">50</span>💰)</button>
             </div>
 
             <div class="upgradeRow">
                 <div style="text-align: left;">
-                    <div>🧲 基礎磁力範圍 (+25)</div>
-                    <small style="color: #aaa;">當前範圍: <span id="magnetStat">80</span></small>
+                    <div>🧲 磁力範圍 (+25)</div>
+                    <small style="color: #aaa;">範圍: <span id="magnetStat">80</span></small>
                 </div>
-                <button class="upgradeBtn" onclick="buyUpgrade('magnet')">升級 (<span id="magnetCost">50</span> 💰)</button>
+                <button class="upgradeBtn" onclick="buyUpgrade('magnet')">升級 (<span id="magnetCost">50</span>💰)</button>
             </div>
 
-            <button class="optionBtn" style="margin-top: 20px;" onclick="closeUpgradeShop()">🔙 返回主選單</button>
+            <button class="optionBtn" style="margin-top: 15px;" onclick="closeUpgradeShop()">🔙 返回主選單</button>
         </div>
 
         <!-- 3. 局內升級選單 -->
         <div id="levelUpMenu" class="uiOverlay">
-            <h2 style="color: #FFD700; margin-top: 0;">🎉 等級提升！</h2>
-            <p>請選擇一個強化能力：</p>
+            <h3 style="color: #FFD700; margin-top: 0;">🎉 等級提升！</h3>
+            <p style="font-size: 13px;">請選擇一個強化能力：</p>
             <div id="upgradeOptionsContainer"></div>
         </div>
 
         <!-- 4. Game Over 結算畫面 -->
-        <div id="gameOverMenu" class="uiOverlay" style="border-color: #FF4444; box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);">
-            <h2 style="color: #FF4444; margin-top: 0;">💀 遊戲結束</h2>
-            <p id="finalScoreText">你達到了等級 1！</p>
-            <p style="color: #FFD700;">本次獲得金幣: +<span id="earnedGoldText">0</span> 💰</p>
+        <div id="gameOverMenu" class="uiOverlay" style="border-color: #FF4444;">
+            <h3 style="color: #FF4444; margin-top: 0;">💀 遊戲結束</h3>
+            <p id="finalScoreText" style="font-size: 14px;">你達到了等級 1！</p>
+            <p style="color: #FFD700; font-size: 15px;">本次獲得金幣: +<span id="earnedGoldText">0</span> 💰</p>
             <button class="optionBtn" style="border-color: #FF4444;" onclick="returnToMainMenu()">🏠 返回主選單</button>
         </div>
     </div>
@@ -165,7 +185,23 @@
 
         let gameState = 'MENU';
 
-        // --- 寶可夢圖片資源載入 ---
+        // 端末の画面アスペクト比に応じて Canvas 解像度を動的調整
+        function resizeCanvas() {
+            const isMobile = window.innerWidth < window.innerHeight;
+            if (isMobile) {
+                // スマホ（縦画面）
+                canvas.width = 450;
+                canvas.height = 800;
+            } else {
+                // パソコン・タブレット（横画面）
+                canvas.width = 1000;
+                canvas.height = 650;
+            }
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 画像リソース
         const images = {
             player: new Image(),
             enemy: new Image(),
@@ -173,12 +209,11 @@
             ball: new Image()
         };
 
-        images.player.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/133.png';  // 伊布
-        images.enemy.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png';   // 小火龍
-        images.boss.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png';    // 噴火龍
-        images.ball.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png'; // 精靈球
+        images.player.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/133.png'; // イーブイ
+        images.enemy.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png';   // ヒトカゲ
+        images.boss.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png';    // リザードン
+        images.ball.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png'; // モンスターボール
 
-        // 局外永久存檔資料
         let savedData = {
             gold: 0,
             baseHp: 100,
@@ -199,9 +234,67 @@
         let enemies = [];
         let gems = [];
 
+        // タッチジョイスティック（iOS / Android 対応）
+        let joystick = {
+            active: false,
+            startX: 0,
+            startY: 0,
+            moveX: 0,
+            moveY: 0
+        };
+
         const keys = {};
         window.addEventListener('keydown', (e) => keys[e.key] = true);
         window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+        // iOS / Android 共通タッチイベント処理
+        function handleTouchStart(e) {
+            if (gameState !== 'PLAYING') return;
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            
+            // キャンバス内の実際の表示スケールを考慮
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            joystick.active = true;
+            joystick.startX = (touch.clientX - rect.left) * scaleX;
+            joystick.startY = (touch.clientY - rect.top) * scaleY;
+            joystick.moveX = 0;
+            joystick.moveY = 0;
+        }
+
+        function handleTouchMove(e) {
+            if (!joystick.active) return;
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            const currentX = (touch.clientX - rect.left) * scaleX;
+            const currentY = (touch.clientY - rect.top) * scaleY;
+
+            const dx = currentX - joystick.startX;
+            const dy = currentY - joystick.startY;
+            const dist = Math.hypot(dx, dy);
+            const maxRadius = 50;
+
+            if (dist > 0) {
+                joystick.moveX = (dx / dist) * Math.min(dist, maxRadius) / maxRadius;
+                joystick.moveY = (dy / dist) * Math.min(dist, maxRadius) / maxRadius;
+            }
+        }
+
+        function handleTouchEnd() {
+            joystick.active = false;
+            joystick.moveX = 0;
+            joystick.moveY = 0;
+        }
+
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 
         let enemySpawnTimer = 0;
 
@@ -273,7 +366,7 @@
             player = {
                 x: WORLD_WIDTH / 2,
                 y: WORLD_HEIGHT / 2,
-                radius: 20, // 略微放大角色碰撞範圍以符合圖片
+                radius: 20,
                 speed: savedData.baseSpeed,
                 shootCooldown: 0,
                 shootRate: savedData.baseShootRate,
@@ -299,7 +392,7 @@
 
         function spawnEnemy() {
             const spawnAngle = Math.random() * Math.PI * 2;
-            const spawnDist = 600 + Math.random() * 200;
+            const spawnDist = 450 + Math.random() * 150;
             let x = player.x + Math.cos(spawnAngle) * spawnDist;
             let y = player.y + Math.sin(spawnAngle) * spawnDist;
 
@@ -321,8 +414,8 @@
 
         function spawnBoss() {
             const spawnAngle = Math.random() * Math.PI * 2;
-            let x = player.x + Math.cos(spawnAngle) * 500;
-            let y = player.y + Math.sin(spawnAngle) * 500;
+            let x = player.x + Math.cos(spawnAngle) * 400;
+            let y = player.y + Math.sin(spawnAngle) * 400;
 
             const bossHp = 100 + player.level * 30;
 
@@ -441,60 +534,57 @@
         function gameLoop() {
             if (gameState !== 'PLAYING') return;
 
-            // --- 玩家移動 ---
-            if ((keys['w'] || keys['W'] || keys['ArrowUp']) && player.y - player.radius > 0) player.y -= player.speed;
-            if ((keys['s'] || keys['S'] || keys['ArrowDown']) && player.y + player.radius < WORLD_HEIGHT) player.y += player.speed;
-            if ((keys['a'] || keys['A'] || keys['ArrowLeft']) && player.x - player.radius > 0) player.x -= player.speed;
-            if ((keys['d'] || keys['D'] || keys['ArrowRight']) && player.x + player.radius < WORLD_WIDTH) player.x += player.speed;
+            // キーボードとスマホジョイスティックの両方に対応
+            let moveX = 0;
+            let moveY = 0;
+
+            if (keys['w'] || keys['W'] || keys['ArrowUp']) moveY -= 1;
+            if (keys['s'] || keys['S'] || keys['ArrowDown']) moveY += 1;
+            if (keys['a'] || keys['A'] || keys['ArrowLeft']) moveX -= 1;
+            if (keys['d'] || keys['D'] || keys['ArrowRight']) moveX += 1;
+
+            if (joystick.active) {
+                moveX = joystick.moveX;
+                moveY = joystick.moveY;
+            }
+
+            player.x = Math.max(player.radius, Math.min(WORLD_WIDTH - player.radius, player.x + moveX * player.speed));
+            player.y = Math.max(player.radius, Math.min(WORLD_HEIGHT - player.radius, player.y + moveY * player.speed));
 
             camera.x = player.x - canvas.width / 2;
             camera.y = player.y - canvas.height / 2;
 
-            if (player.invincibleTimer > 0) {
-                player.invincibleTimer--;
-            }
+            if (player.invincibleTimer > 0) player.invincibleTimer--;
 
-            // --- 發射子彈 ---
             player.shootCooldown++;
             if (player.shootCooldown >= player.shootRate) {
                 autoShoot();
                 player.shootCooldown = 0;
             }
 
-            // --- 生成敵人 ---
             enemySpawnTimer++;
             if (enemySpawnTimer >= 50) {
                 spawnEnemy();
                 enemySpawnTimer = 0;
             }
 
-            // --- 更新子彈 ---
             for (let i = bullets.length - 1; i >= 0; i--) {
                 const b = bullets[i];
                 b.x += b.vx;
                 b.y += b.vy;
-                if (Math.hypot(b.x - player.x, b.y - player.y) > 1000) {
-                    bullets.splice(i, 1);
-                }
+                if (Math.hypot(b.x - player.x, b.y - player.y) > 800) bullets.splice(i, 1);
             }
 
-            // --- 更新敵人 ---
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const e = enemies[i];
                 const angle = Math.atan2(player.y - e.y, player.x - e.x);
                 e.x += Math.cos(angle) * e.speed;
                 e.y += Math.sin(angle) * e.speed;
 
-                const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
-                if (distToPlayer < player.radius + e.radius && player.invincibleTimer === 0) {
+                if (Math.hypot(player.x - e.x, player.y - e.y) < player.radius + e.radius && player.invincibleTimer === 0) {
                     player.hp -= e.damage;
                     player.invincibleTimer = 30;
-
-                    if (player.hp <= 0) {
-                        player.hp = 0;
-                        triggerGameOver();
-                        return;
-                    }
+                    if (player.hp <= 0) { player.hp = 0; triggerGameOver(); return; }
                 }
 
                 for (let j = bullets.length - 1; j >= 0; j--) {
@@ -502,16 +592,9 @@
                     if (Math.hypot(b.x - e.x, b.y - e.y) < b.radius + e.radius) {
                         e.hp -= 1;
                         bullets.splice(j, 1);
-
                         if (e.hp <= 0) {
                             if (e.isBoss) {
-                                for (let k = 0; k < 10; k++) {
-                                    gems.push({
-                                        x: e.x + (Math.random() - 0.5) * 40,
-                                        y: e.y + (Math.random() - 0.5) * 40,
-                                        radius: 12
-                                    });
-                                }
+                                for (let k = 0; k < 10; k++) gems.push({ x: e.x + (Math.random() - 0.5) * 40, y: e.y + (Math.random() - 0.5) * 40, radius: 12 });
                             } else {
                                 gems.push({ x: e.x, y: e.y, radius: 10 });
                             }
@@ -522,31 +605,27 @@
                 }
             }
 
-            // --- 磁鐵吸附經驗寶石邏輯 ---
             for (let i = gems.length - 1; i >= 0; i--) {
                 const g = gems[i];
-                const distToPlayer = Math.hypot(player.x - g.x, player.y - g.y);
-
-                if (distToPlayer < player.magnetRadius) {
+                const dist = Math.hypot(player.x - g.x, player.y - g.y);
+                if (dist < player.magnetRadius) {
                     const angle = Math.atan2(player.y - g.y, player.x - g.x);
-                    const magnetSpeed = 6;
-                    g.x += Math.cos(angle) * magnetSpeed;
-                    g.y += Math.sin(angle) * magnetSpeed;
+                    g.x += Math.cos(angle) * 6;
+                    g.y += Math.sin(angle) * 6;
                 }
-
-                if (distToPlayer < player.radius + g.radius) {
+                if (dist < player.radius + g.radius) {
                     gems.splice(i, 1);
                     addExp(1);
                 }
             }
 
-            // --- 繪製畫面 ---
+            // 描画
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // 背景網格
+            // 背景グリッド
             ctx.strokeStyle = '#2c3e50';
             ctx.lineWidth = 1;
             const gridSize = 100;
@@ -557,57 +636,43 @@
                 ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WORLD_WIDTH, y); ctx.stroke();
             }
 
-            // 邊界
             ctx.strokeStyle = '#FF0000';
             ctx.lineWidth = 5;
             ctx.strokeRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-            // 1. 畫精靈球經驗物
+            // モンスターボール
             gems.forEach(g => {
                 if (images.ball.complete && images.ball.naturalWidth !== 0) {
                     ctx.drawImage(images.ball, g.x - 12, g.y - 12, 24, 24);
                 } else {
-                    ctx.beginPath();
-                    ctx.arc(g.x, g.y, g.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = '#00FF66';
-                    ctx.fill();
-                    ctx.closePath();
+                    ctx.beginPath(); ctx.arc(g.x, g.y, g.radius, 0, Math.PI * 2); ctx.fillStyle = '#00FF66'; ctx.fill(); ctx.closePath();
                 }
             });
 
-            // 2. 畫磁鐵半透明光圈
+            // 磁力サークル
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.magnetRadius, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
             ctx.fill();
             ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
-            ctx.lineWidth = 1;
             ctx.stroke();
             ctx.closePath();
 
-            // 3. 畫玩家（皮卡丘）
+            // プレイヤー（イーブイ）
             if (player.invincibleTimer % 6 < 3) {
                 if (images.player.complete && images.player.naturalWidth !== 0) {
                     ctx.drawImage(images.player, player.x - 30, player.y - 30, 60, 60);
                 } else {
-                    ctx.beginPath();
-                    ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = '#FFD700';
-                    ctx.fill();
-                    ctx.closePath();
+                    ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fillStyle = '#FFD700'; ctx.fill(); ctx.closePath();
                 }
             }
 
-            // 4. 畫子彈
+            // 弾
             bullets.forEach(b => {
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
-                ctx.fillStyle = b.color;
-                ctx.fill();
-                ctx.closePath();
+                ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); ctx.fillStyle = b.color; ctx.fill(); ctx.closePath();
             });
 
-            // 5. 畫敵人（小火龍 / 噴火龍 Boss）
+            // 敵（ヒトカゲ / リザードン）
             enemies.forEach(e => {
                 const img = e.isBoss ? images.boss : images.enemy;
                 const imgSize = e.isBoss ? 110 : 50;
@@ -615,14 +680,9 @@
                 if (img.complete && img.naturalWidth !== 0) {
                     ctx.drawImage(img, e.x - imgSize / 2, e.y - imgSize / 2, imgSize, imgSize);
                 } else {
-                    ctx.beginPath();
-                    ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = e.isBoss ? '#9932CC' : '#FF4444';
-                    ctx.fill();
-                    ctx.closePath();
+                    ctx.beginPath(); ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2); ctx.fillStyle = e.isBoss ? '#9932CC' : '#FF4444'; ctx.fill(); ctx.closePath();
                 }
 
-                // 畫血條
                 const barWidth = e.isBoss ? 60 : 28;
                 const barHeight = e.isBoss ? 6 : 4;
                 const barOffsetY = e.radius + (e.isBoss ? 15 : 10);
@@ -635,30 +695,40 @@
 
             ctx.restore();
 
-            // --- 畫 UI ---
-            // 1. 血量條
+            // ジョイスティック描画
+            if (joystick.active) {
+                ctx.beginPath();
+                ctx.arc(joystick.startX, joystick.startY, 50, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(joystick.startX + joystick.moveX * 50, joystick.startY + joystick.moveY * 50, 20, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
+                ctx.fill();
+            }
+
+            // UI
             ctx.fillStyle = "white";
             ctx.font = "14px sans-serif";
             ctx.fillText(`血量: ${player.hp} / ${player.maxHp}`, 15, 25);
             ctx.fillStyle = "#444";
-            ctx.fillRect(15, 30, 200, 10);
+            ctx.fillRect(15, 30, 180, 10);
             ctx.fillStyle = "#FF4444";
-            ctx.fillRect(15, 30, Math.max(0, (player.hp / player.maxHp) * 200), 10);
+            ctx.fillRect(15, 30, Math.max(0, (player.hp / player.maxHp) * 180), 10);
 
-            // 2. 等級經驗條
             ctx.fillStyle = "white";
             ctx.fillText(`等級: ${player.level}`, 15, 60);
             ctx.fillStyle = "#444";
-            ctx.fillRect(15, 65, 200, 10);
+            ctx.fillRect(15, 65, 180, 10);
             ctx.fillStyle = "#00FF66";
-            ctx.fillRect(15, 65, (player.exp / player.maxExp) * 200, 10);
+            ctx.fillRect(15, 65, (player.exp / player.maxExp) * 180, 10);
 
-            // 3. 當局金幣與磁力顯示
             ctx.fillStyle = "#FFD700";
-            ctx.font = "14px sans-serif";
+            ctx.font = "13px sans-serif";
             ctx.fillText(`💰 金幣: ${sessionGold}`, 15, 95);
-            ctx.fillStyle = "#00FFFF";
-            ctx.fillText(`🧲 磁力範圍: ${player.magnetRadius}`, 15, 115);
 
             requestAnimationFrame(gameLoop);
         }

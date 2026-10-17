@@ -1,947 +1,226 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>寶可夢肉鴿大冒險 - 永久存檔保護版</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            touch-action: none;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        html, body {
-            margin: 0; padding: 0;
-            width: 100%; height: 100%;
-            background-color: #111;
-            display: flex; justify-content: center; align-items: center;
-            overflow: hidden; font-family: sans-serif; color: white;
-        }
-        #gameContainer {
-            position: relative; width: 100vw; height: 100vh;
-            display: flex; justify-content: center; align-items: center;
-        }
-        canvas {
-            border: 2px solid #555; background-color: #1b2631; display: block;
-            max-width: 100%; max-height: 100%; object-fit: contain;
-        }
-        #pauseBtn {
-            display: none;
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            width: 40px;
-            height: 40px;
-            background-color: rgba(0, 0, 0, 0.6);
-            border: 2px solid #FFD700;
-            color: #FFD700;
-            border-radius: 8px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            z-index: 5;
-            text-align: center;
-            line-height: 36px;
-        }
-        .uiOverlay {
-            display: none; position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.95);
-            border: 3px solid #FFD700; padding: 20px; text-align: center;
-            border-radius: 12px; box-shadow: 0 0 25px rgba(255, 215, 0, 0.5);
-            z-index: 10; width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto;
-        }
-        .optionBtn {
-            display: block; width: 100%; margin: 8px auto; padding: 10px;
-            background-color: #333; color: white; border: 2px solid #666;
-            border-radius: 6px; font-size: 14px; cursor: pointer; transition: 0.2s;
-        }
-        .optionBtn:hover { background-color: #555; border-color: #FFD700; }
-        .upgradeRow {
-            display: flex; justify-content: space-between; align-items: center;
-            margin: 8px 0; background: #222; padding: 8px 12px;
-            border-radius: 8px; border: 1px solid #444; font-size: 13px;
-        }
-        .upgradeBtn {
-            padding: 6px 10px; background-color: #27ae60; color: white;
-            border: none; border-radius: 5px; cursor: pointer; font-weight: bold;
-        }
-        .charCard {
-            display: flex; align-items: center; justify-content: space-between;
-            background: #222; border: 2px solid #444; border-radius: 8px;
-            padding: 8px; margin: 8px 0;
-        }
-        .charCard.selected { border-color: #FFD700; background: #332b00; }
-    </style>
-</head>
-<body>
-
-    <div id="gameContainer">
-        <canvas id="gameCanvas"></canvas>
-        
-        <div id="pauseBtn" onclick="togglePause()">⏸</div>
-
-        <!-- 1. 主選單 (Start Menu) -->
-        <div id="mainMenu" class="uiOverlay" style="display: block;">
-            <h2 style="color: #FFD700; margin-top: 0;">⚡ 寶可夢肉鴿大冒險</h2>
-            <p style="color: #aaa; font-size: 12px;">🛡️ 永久存檔安全保護 • 數據永不遺失</p>
-            <p style="color: #FFD700; font-size: 16px;">💰 當前金幣: <span id="menuGoldDisplay">0</span></p>
-            <button class="optionBtn" style="background-color: #1e8449; border-color: #2ecc71;" onclick="startGame()">▶ 開始遊戲 (Start)</button>
-            <button class="optionBtn" onclick="openCharSelect()">🐾 選擇角色 (Characters)</button>
-            <button class="optionBtn" onclick="openUpgradeShop()">🛠 屬性強化 (Upgrade)</button>
-        </div>
-
-        <!-- 2. 角色選擇 -->
-        <div id="charSelect" class="uiOverlay">
-            <h3 style="color: #FFD700; margin-top: 0;">🐾 選擇寶可夢</h3>
-            <p style="color: #FFD700; font-size: 14px;">💰 金幣: <span id="charGoldDisplay">0</span></p>
-            <div id="charListContainer"></div>
-            <button class="optionBtn" style="margin-top: 15px;" onclick="closeCharSelect()">🔙 返回主選單</button>
-        </div>
-
-        <!-- 3. 局外強化商店 -->
-        <div id="upgradeShop" class="uiOverlay">
-            <h3 style="color: #FFD700; margin-top: 0;">🛠 局外屬性強化</h3>
-            <p style="color: #FFD700; font-size: 14px;">💰 金幣: <span id="shopGoldDisplay">0</span></p>
-            
-            <div class="upgradeRow">
-                <div>💥 全招式威力 (+15%)</div>
-                <button class="upgradeBtn" onclick="buyUpgrade('dmg')">升級 (<span id="dmgCost">50</span>💰)</button>
-            </div>
-            <div class="upgradeRow">
-                <div>❤️ 生命上限 (+20)</div>
-                <button class="upgradeBtn" onclick="buyUpgrade('hp')">升級 (<span id="hpCost">50</span>💰)</button>
-            </div>
-            <div class="upgradeRow">
-                <div>⚡ 基礎移速 (+0.5)</div>
-                <button class="upgradeBtn" onclick="buyUpgrade('speed')">升級 (<span id="speedCost">50</span>💰)</button>
-            </div>
-            <div class="upgradeRow">
-                <div>🧲 拾取磁力 (+25)</div>
-                <button class="upgradeBtn" onclick="buyUpgrade('magnet')">升級 (<span id="magnetCost">50</span>💰)</button>
-            </div>
-
-            <button class="optionBtn" style="margin-top: 15px;" onclick="closeUpgradeShop()">🔙 返回主選單</button>
-        </div>
-
-        <!-- 4. 局內升級選單 -->
-        <div id="levelUpMenu" class="uiOverlay">
-            <h3 style="color: #FFD700; margin-top: 0;">🎉 招式學習 / 屬性提升</h3>
-            <p style="font-size: 12px; color: #aaa;">選擇一個能力強化你的隊伍：</p>
-            <div id="upgradeOptionsContainer"></div>
-        </div>
-
-        <!-- 5. 遊戲暫停選單 (Pause Menu) -->
-        <div id="pauseMenu" class="uiOverlay">
-            <h3 style="color: #FFD700; margin-top: 0;">⏸ 遊戲暫停</h3>
-            <p style="font-size: 13px; color: #aaa;">目前當局獲得金幣: <span id="pauseGoldText">0</span> 💰</p>
-            <button class="optionBtn" style="background-color: #1e8449; border-color: #2ecc71;" onclick="togglePause()">▶ 繼續遊戲</button>
-            <button class="optionBtn" style="border-color: #FF4444;" onclick="exitGameFromPause()">🏠 退出遊戲 (保存金幣)</button>
-        </div>
-
-        <!-- 6. Game Over 結算畫面 -->
-        <div id="gameOverMenu" class="uiOverlay" style="border-color: #FF4444;">
-            <h3 style="color: #FF4444; margin-top: 0;">💀 遊戲結束</h3>
-            <p id="finalScoreText" style="font-size: 13px;">你達到了等級 1！</p>
-            <p style="color: #FFD700; font-size: 15px;">本次獲得金幣: +<span id="earnedGoldText">0</span> 💰</p>
-            <button class="optionBtn" style="border-color: #FF4444;" onclick="returnToMainMenu()">🏠 返回主選單</button>
-        </div>
-    </div>
-
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-
-        const mainMenu = document.getElementById('mainMenu');
-        const upgradeShop = document.getElementById('upgradeShop');
-        const charSelect = document.getElementById('charSelect');
-        const levelUpMenu = document.getElementById('levelUpMenu');
-        const pauseMenu = document.getElementById('pauseMenu');
-        const gameOverMenu = document.getElementById('gameOverMenu');
-        const pauseBtn = document.getElementById('pauseBtn');
-        const finalScoreText = document.getElementById('finalScoreText');
-        const earnedGoldText = document.getElementById('earnedGoldText');
-        const pauseGoldText = document.getElementById('pauseGoldText');
-        const upgradeOptionsContainer = document.getElementById('upgradeOptionsContainer');
-        const charListContainer = document.getElementById('charListContainer');
-
-        const WORLD_WIDTH = 3200;
-        const WORLD_HEIGHT = 3200;
-
-        let gameState = 'MENU';
-
-        const TYPE_CHART = {
-            electric: { water: 2.0, grass: 0.5, electric: 0.5 },
-            fire: { grass: 2.0, water: 0.5, fire: 0.5 },
-            grass: { water: 2.0, fire: 0.5, grass: 0.5 },
-            water: { fire: 2.0, grass: 0.5, water: 0.5 }
-        };
-
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let bgmTimer = null;
-
-        function startBGM() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            if (bgmTimer) clearInterval(bgmTimer);
-
-            const notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
-            let step = 0;
-
-            bgmTimer = setInterval(() => {
-                if (gameState !== 'PLAYING') return;
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(notes[step % notes.length], audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.18);
-                step++;
-            }, 200);
-        }
-
-        function playSound(type) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-
-            if (type === 'shoot') {
-                osc.frequency.setValueAtTime(450, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.08);
-                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.08);
-            } else if (type === 'hit') {
-                osc.type = 'square'; osc.frequency.setValueAtTime(120, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.05);
-            } else if (type === 'gem') {
-                osc.frequency.setValueAtTime(700, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(1400, audioCtx.currentTime + 0.08);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.08);
-            } else if (type === 'heal') {
-                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.2);
-                gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-            } else if (type === 'levelup') {
-                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-                osc.frequency.setValueAtTime(600, audioCtx.currentTime + 0.15);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.25);
-            }
-        }
-
-        const CHARACTERS = {
-            eevee: { name: '伊布', id: 133, price: 0, desc: '均衡型，經驗拾取範圍較大', bonusMag: 30, bonusSpeed: 0 },
-            pikachu: { name: '皮卡丘', id: 25, price: 100, desc: '高速度，移動與基礎攻速較快', bonusMag: 0, bonusSpeed: 0.6 },
-            charmander: { name: '小火龍', id: 4, price: 200, desc: '高爆發，初始火系威力提升', bonusMag: 0, bonusSpeed: 0 }
-        };
-
-        // 預設標準資料結構
-        const defaultSaveData = {
-            gold: 0, selectedChar: 'eevee', unlockedChars: ['eevee'],
-            dmgLevel: 0, hpLevel: 0, speedLevel: 0, magnetLevel: 0,
-            baseHp: 100, baseSpeed: 2.2, baseMagnet: 90, dmgMultiplier: 1.0
-        };
-
-        // 安全讀取與防覆蓋修復機制（Safe Load & Deep Merge）
-        function loadGameData() {
-            try {
-                const raw = localStorage.getItem('pokesurvivor_perfect_save');
-                if (!raw) return { ...defaultSaveData };
-                const parsed = JSON.parse(raw);
-                // 自動補齊新更新欄位，完美合併舊進度
-                return Object.assign({}, defaultSaveData, parsed);
-            } catch (e) {
-                console.error("存檔讀取異常，改用預設值", e);
-                return { ...defaultSaveData };
-            }
-        }
-
-        let savedData = loadGameData();
-
-        function saveGame() { 
-            try {
-                localStorage.setItem('pokesurvivor_perfect_save', JSON.stringify(savedData)); 
-            } catch (e) {
-                console.error("存檔寫入失敗", e);
-            }
-        }
-
-        function resizeCanvas() {
-            if (window.innerWidth < window.innerHeight) { canvas.width = 450; canvas.height = 800; }
-            else { canvas.width = 1000; canvas.height = 650; }
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-
-        const images = { ball: new Image(), shinyBall: new Image(), boss: new Image() };
-        images.ball.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png';
-        images.shinyBall.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png';
-        images.boss.src = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png';
-
-        const pokemonCache = {};
-        function getPokemonImg(id, isShiny = false) {
-            const key = `${id}_${isShiny}`;
-            if (!pokemonCache[key]) {
-                pokemonCache[key] = new Image();
-                pokemonCache[key].src = isShiny 
-                    ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/${id}.png`
-                    : `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
-            }
-            return pokemonCache[key];
-        }
-
-        let player = {};
-        let sessionGold = 0;
-        let gameTimeFrames = 0;
-        const camera = { x: 0, y: 0 };
-        let bullets = [];
-        let enemies = [];
-        let gems = [];
-        let particles = [];
-        let chests = [];
-        let damageTexts = [];
-        let rocks = [];
-
-        let screenShakeTime = 0;
-        let currentWeather = 'NORMAL';
-        let weatherTimer = 0;
-
-        let joystick = { active: false, startX: 0, startY: 0, moveX: 0, moveY: 0 };
-        const keys = {};
-        
-        window.addEventListener('keydown', (e) => {
-            keys[e.key] = true;
-            if (e.key === 'Escape' || e.key === 'Esc') {
-                if (gameState === 'PLAYING' || gameState === 'PAUSED') {
-                    togglePause();
-                }
-            }
-        });
-        window.addEventListener('keyup', (e) => keys[e.key] = false);
-
-        canvas.addEventListener('touchstart', (e) => {
-            if (gameState !== 'PLAYING') return;
-            const touch = e.touches[0]; const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height;
-            joystick.active = true;
-            joystick.startX = (touch.clientX - rect.left) * scaleX;
-            joystick.startY = (touch.clientY - rect.top) * scaleY;
-            joystick.moveX = 0; joystick.moveY = 0;
-        }, { passive: false });
-
-        canvas.addEventListener('touchmove', (e) => {
-            if (!joystick.active) return;
-            const touch = e.touches[0]; const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width; const scaleY = canvas.height / rect.height;
-            const dx = (touch.clientX - rect.left) * scaleX - joystick.startX;
-            const dy = (touch.clientY - rect.top) * scaleY - joystick.startY;
-            const dist = Math.hypot(dx, dy); const maxR = 50;
-            if (dist > 0) { joystick.moveX = (dx / dist) * Math.min(dist, maxR) / maxR; joystick.moveY = (dy / dist) * Math.min(dist, maxR) / maxR; }
-        }, { passive: false });
-
-        canvas.addEventListener('touchend', () => { joystick.active = false; joystick.moveX = 0; joystick.moveY = 0; });
-
-        let enemySpawnTimer = 0;
-
-        function generateRocks() {
-            rocks = [];
-            for (let i = 0; i < 45; i++) {
-                rocks.push({
-                    x: 200 + Math.random() * (WORLD_WIDTH - 400),
-                    y: 200 + Math.random() * (WORLD_HEIGHT - 400),
-                    radius: 25 + Math.random() * 15
-                });
-            }
-        }
-
-        function createExplosion(x, y, color, count = 8) {
-            for (let i = 0; i < count; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = 1 + Math.random() * 3;
-                particles.push({
-                    x: x, y: y,
-                    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                    radius: 2 + Math.random() * 3,
-                    color: color, life: 20 + Math.random() * 15
-                });
-            }
-        }
-
-        function updateUI() {
-            document.getElementById('menuGoldDisplay').innerText = savedData.gold;
-            document.getElementById('shopGoldDisplay').innerText = savedData.gold;
-            document.getElementById('charGoldDisplay').innerText = savedData.gold;
-            document.getElementById('dmgCost').innerText = (savedData.dmgLevel + 1) * 50;
-            document.getElementById('hpCost').innerText = (savedData.hpLevel + 1) * 50;
-            document.getElementById('speedCost').innerText = (savedData.speedLevel + 1) * 50;
-            document.getElementById('magnetCost').innerText = (savedData.magnetLevel + 1) * 50;
-        }
-
-        function openUpgradeShop() { mainMenu.style.display = 'none'; upgradeShop.style.display = 'block'; updateUI(); }
-        function closeUpgradeShop() { upgradeShop.style.display = 'none'; mainMenu.style.display = 'block'; updateUI(); }
-
-        function openCharSelect() { mainMenu.style.display = 'none'; charSelect.style.display = 'block'; renderCharList(); updateUI(); }
-        function closeCharSelect() { charSelect.style.display = 'none'; mainMenu.style.display = 'block'; updateUI(); }
-
-        function renderCharList() {
-            charListContainer.innerHTML = '';
-            for (let key in CHARACTERS) {
-                const char = CHARACTERS[key];
-                const isUnlocked = savedData.unlockedChars.includes(key);
-                const isSelected = savedData.selectedChar === key;
-
-                const card = document.createElement('div');
-                card.className = `charCard ${isSelected ? 'selected' : ''}`;
-                card.innerHTML = `
-                    <div style="text-align: left;">
-                        <strong style="color: #FFD700;">${char.name}</strong>
-                        <div style="font-size: 11px; color: #aaa;">${char.desc}</div>
-                    </div>
-                    <div>
-                        ${isSelected ? '<span style="color: #00FF66; font-size: 12px;">使用中</span>' :
-                          isUnlocked ? `<button class="upgradeBtn" onclick="selectChar('${key}')">選擇</button>` :
-                          `<button class="upgradeBtn" style="background: #e67e22;" onclick="unlockChar('${key}')">解鎖 (${char.price}💰)</button>`}
-                    </div>
-                `;
-                charListContainer.appendChild(card);
-            }
-        }
-
-        function selectChar(key) { savedData.selectedChar = key; saveGame(); renderCharList(); }
-        function unlockChar(key) {
-            const char = CHARACTERS[key];
-            if (savedData.gold >= char.price) {
-                savedData.gold -= char.price; savedData.unlockedChars.push(key);
-                savedData.selectedChar = key; saveGame(); updateUI(); renderCharList();
-            }
-        }
-
-        function buyUpgrade(type) {
-            const costs = {
-                dmg: (savedData.dmgLevel + 1) * 50, hp: (savedData.hpLevel + 1) * 50,
-                speed: (savedData.speedLevel + 1) * 50, magnet: (savedData.magnetLevel + 1) * 50
-            };
-            if (savedData.gold >= costs[type]) {
-                savedData.gold -= costs[type];
-                if (type === 'dmg') { savedData.dmgMultiplier += 0.15; savedData.dmgLevel++; }
-                else if (type === 'hp') { savedData.baseHp += 20; savedData.hpLevel++; }
-                else if (type === 'speed') { savedData.baseSpeed += 0.5; savedData.speedLevel++; }
-                else if (type === 'magnet') { savedData.baseMagnet += 25; savedData.magnetLevel++; }
-                saveGame(); updateUI();
-            }
-        }
-
-        function togglePause() {
-            if (gameState === 'PLAYING') {
-                gameState = 'PAUSED';
-                pauseGoldText.innerText = sessionGold;
-                pauseMenu.style.display = 'block';
-            } else if (gameState === 'PAUSED') {
-                gameState = 'PLAYING';
-                pauseMenu.style.display = 'none';
-                gameLoop();
-            }
-        }
-
-        function exitGameFromPause() {
-            pauseMenu.style.display = 'none';
-            pauseBtn.style.display = 'none';
-            savedData.gold += sessionGold;
-            saveGame();
-            if (bgmTimer) clearInterval(bgmTimer);
-            returnToMainMenu();
-        }
-
-        function startGame() {
-            mainMenu.style.display = 'none'; upgradeShop.style.display = 'none';
-            charSelect.style.display = 'none'; gameOverMenu.style.display = 'none';
-            pauseMenu.style.display = 'none';
-            pauseBtn.style.display = 'block';
-
-            const charConfig = CHARACTERS[savedData.selectedChar] || CHARACTERS.eevee;
-
-            player = {
-                x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, radius: 20, pokemonId: charConfig.id,
-                speed: savedData.baseSpeed + charConfig.bonusSpeed,
-                magnetRadius: savedData.baseMagnet + charConfig.bonusMag,
-                level: 1, exp: 0, maxExp: 5, hp: savedData.baseHp, maxHp: savedData.baseHp, invincibleTimer: 0,
-                healLevel: 0, healTimer: 0,
-                moves: [
-                    { id: 'tb', name: '十萬伏特', type: 'electric', level: 1, cooldown: 35, timer: 0, dmg: 4, evolved: false },
-                    { id: 'flame', name: '噴射火焰', type: 'fire', level: 0, cooldown: 50, timer: 0, dmg: 6 },
-                    { id: 'leaf', name: '葉風暴', type: 'grass', level: 0, cooldown: 0, timer: 0, dmg: 2 },
-                    { id: 'hydro', name: '水砲', type: 'water', level: 0, cooldown: 65, timer: 0, dmg: 10 }
-                ],
-                leafAngle: 0
-            };
-
-            bullets = []; enemies = []; gems = []; particles = []; chests = []; damageTexts = [];
-            sessionGold = 0; enemySpawnTimer = 0; screenShakeTime = 0; gameTimeFrames = 0;
-            currentWeather = 'NORMAL'; weatherTimer = 0;
-
-            generateRocks();
-            startBGM();
-
-            gameState = 'PLAYING'; gameLoop();
-        }
-
-        function spawnEnemy() {
-            const spawnAngle = Math.random() * Math.PI * 2;
-            const spawnDist = 450 + Math.random() * 150;
-            let x = player.x + Math.cos(spawnAngle) * spawnDist;
-            let y = player.y + Math.sin(spawnAngle) * spawnDist;
-
-            const wildList = [
-                { id: 4, type: 'fire' }, { id: 7, type: 'water' },
-                { id: 1, type: 'grass' }, { id: 19, type: 'electric' }
-            ];
-            const pData = wildList[Math.floor(Math.random() * wildList.length)];
-            const isShiny = Math.random() < 0.05;
-
-            const timeScaling = Math.floor(gameTimeFrames / 1800) * 2;
-            const baseHp = (isShiny ? 15 : 4) + Math.floor(player.level * 1.5) + timeScaling;
-
-            enemies.push({
-                x: x, y: y, radius: 18, speed: isShiny ? 2.2 : 1.4,
-                hp: baseHp, maxHp: baseHp,
-                pokemonId: pData.id, type: pData.type, isShiny: isShiny, isBoss: false,
-                damage: isShiny ? 25 : 12, flashTimer: 0
-            });
-        }
-
-        function spawnBoss() {
-            const spawnAngle = Math.random() * Math.PI * 2;
-            let x = player.x + Math.cos(spawnAngle) * 400;
-            let y = player.y + Math.sin(spawnAngle) * 400;
-
-            const timeScaling = Math.floor(gameTimeFrames / 1800) * 15;
-            const bossHp = 100 + player.level * 30 + timeScaling;
-
-            enemies.push({
-                x: x, y: y, radius: 45, speed: 0.8,
-                hp: bossHp, maxHp: bossHp,
-                type: 'fire', isShiny: false, isBoss: true, damage: 30, flashTimer: 0
-            });
-        }
-
-        function castMove(move) {
-            if (enemies.length === 0) return;
-
-            let closest = null, minDist = Infinity;
-            enemies.forEach(e => {
-                const d = Math.hypot(e.x - player.x, e.y - player.y);
-                if (d < minDist) { minDist = d; closest = e; }
-            });
-
-            if (closest) {
-                playSound('shoot');
-                const angle = Math.atan2(closest.y - player.y, closest.x - player.x);
-                let finalDmg = move.dmg * savedData.dmgMultiplier;
-
-                if (currentWeather === 'RAIN' && (move.type === 'water' || move.type === 'electric')) finalDmg *= 1.3;
-                if (currentWeather === 'SUNNY' && move.type === 'fire') finalDmg *= 1.3;
-
-                const count = move.evolved ? 3 : 1;
-                const spread = 0.2;
-                const startA = angle - ((count - 1) * spread) / 2;
-
-                for (let k = 0; k < count; k++) {
-                    bullets.push({
-                        x: player.x, y: player.y,
-                        vx: Math.cos(startA + k * spread) * 9, vy: Math.sin(startA + k * spread) * 9,
-                        radius: move.evolved ? 8 : (move.type === 'hydro' ? 10 : 5),
-                        color: move.evolved ? '#00FFFF' : (move.type === 'electric' ? '#FFD700' : move.type === 'fire' ? '#FF4500' : '#00FF66'),
-                        type: move.type, damage: finalDmg
-                    });
-                }
-            }
-        }
-
-        function showLevelUpMenu() {
-            playSound('levelup');
-            createExplosion(player.x, player.y, '#00FF66', 15);
-
-            const availableUpgrades = [
-                { name: '💚 學習/升級 [光合作用] (自動回血)', action: () => player.healLevel++ },
-                { name: '🔥 學習/升級 [噴射火焰]', action: () => player.moves[1].level++ },
-                { name: '🍃 學習/升級 [葉風暴]', action: () => player.moves[2].level++ },
-                { name: '💧 學習/升級 [水砲]', action: () => player.moves[3].level++ },
-                { 
-                    name: player.moves[0].level >= 5 && !player.moves[0].evolved ? '⚡ 超進化！【打雷 (Thunder)】' : '⚡ 強化 [十萬伏特]', 
-                    action: () => {
-                        player.moves[0].level++;
-                        if (player.moves[0].level >= 5) player.moves[0].evolved = true;
-                        player.moves[0].dmg += 3;
-                        player.moves[0].cooldown = Math.max(12, player.moves[0].cooldown - 4);
-                    }
-                },
-                { name: '🧲 擴大拾取範圍 (+30)', action: () => player.magnetRadius += 30 },
-                { name: '⚡ 提升移動速度 (+0.8)', action: () => player.speed += 0.8 }
-            ];
-
-            const shuffled = availableUpgrades.sort(() => 0.5 - Math.random()).slice(0, 3);
-            upgradeOptionsContainer.innerHTML = '';
-            shuffled.forEach(upg => {
-                const btn = document.createElement('button');
-                btn.className = 'optionBtn'; btn.innerText = upg.name;
-                btn.onclick = () => { upg.action(); levelUpMenu.style.display = 'none'; gameState = 'PLAYING'; gameLoop(); };
-                upgradeOptionsContainer.appendChild(btn);
-            });
-            levelUpMenu.style.display = 'block';
-        }
-
-        function addExp(amount, isShiny = false) {
-            playSound('gem');
-            player.exp += amount;
-            sessionGold += isShiny ? 100 : 10;
-
-            if (player.exp >= player.maxExp) {
-                player.exp -= player.maxExp; player.level += 1;
-                player.maxExp = Math.floor(player.maxExp * 1.4);
-
-                if (player.level % 5 === 0) spawnBoss();
-
-                gameState = 'PAUSED'; showLevelUpMenu();
-            }
-        }
-
-        function triggerGameOver() {
-            gameState = 'GAMEOVER'; savedData.gold += sessionGold; saveGame();
-            pauseBtn.style.display = 'none';
-            if (bgmTimer) clearInterval(bgmTimer);
-            finalScoreText.innerText = `你在戰場上存活到了等級 ${player.level}！`;
-            earnedGoldText.innerText = sessionGold; gameOverMenu.style.display = 'block';
-        }
-
-        function returnToMainMenu() {
-            gameOverMenu.style.display = 'none'; pauseBtn.style.display = 'none';
-            mainMenu.style.display = 'block';
-            gameState = 'MENU'; updateUI(); drawMenuBackground();
-        }
-
-        function drawMenuBackground() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#1b2631"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-
-        function gameLoop() {
-            if (gameState !== 'PLAYING') return;
-
-            gameTimeFrames++;
-
-            let moveX = 0, moveY = 0;
-            if (keys['w'] || keys['W'] || keys['ArrowUp']) moveY -= 1;
-            if (keys['s'] || keys['S'] || keys['ArrowDown']) moveY += 1;
-            if (keys['a'] || keys['A'] || keys['ArrowLeft']) moveX -= 1;
-            if (keys['d'] || keys['D'] || keys['ArrowRight']) moveX += 1;
-            if (joystick.active) { moveX = joystick.moveX; moveY = joystick.moveY; }
-
-            let nextX = player.x + moveX * player.speed;
-            let nextY = player.y + moveY * player.speed;
-
-            rocks.forEach(r => {
-                const dist = Math.hypot(nextX - r.x, nextY - r.y);
-                if (dist < player.radius + r.radius) {
-                    const angle = Math.atan2(nextY - r.y, nextX - r.x);
-                    nextX = r.x + Math.cos(angle) * (player.radius + r.radius);
-                    nextY = r.y + Math.sin(angle) * (player.radius + r.radius);
-                }
-            });
-
-            player.x = Math.max(player.radius, Math.min(WORLD_WIDTH - player.radius, nextX));
-            player.y = Math.max(player.radius, Math.min(WORLD_HEIGHT - player.radius, nextY));
-
-            camera.x = player.x - canvas.width / 2; camera.y = player.y - canvas.height / 2;
-
-            if (player.invincibleTimer > 0) player.invincibleTimer--;
-
-            if (player.healLevel > 0) {
-                player.healTimer++;
-                const healInterval = Math.max(120, 300 - player.healLevel * 40);
-                if (player.healTimer >= healInterval) {
-                    const healAmount = 10 + player.healLevel * 5;
-                    player.hp = Math.min(player.maxHp, player.hp + healAmount);
-                    playSound('heal');
-                    createExplosion(player.x, player.y, '#00FF66', 8);
-                    damageTexts.push({
-                        x: player.x, y: player.y - 15,
-                        text: `+${healAmount} HP`, color: '#00FF66', opacity: 1.0
-                    });
-                    player.healTimer = 0;
-                }
-            }
-
-            weatherTimer++;
-            if (weatherTimer >= 600) {
-                const wList = ['NORMAL', 'RAIN', 'SUNNY'];
-                currentWeather = wList[Math.floor(Math.random() * wList.length)];
-                weatherTimer = 0;
-            }
-
-            player.moves.forEach(m => {
-                if (m.level > 0 && m.cooldown > 0) {
-                    m.timer++;
-                    if (m.timer >= m.cooldown) { castMove(m); m.timer = 0; }
-                }
-            });
-
-            if (player.moves[2].level > 0) player.leafAngle += 0.06;
-
-            enemySpawnTimer++;
-            if (enemySpawnTimer >= 45) { spawnEnemy(); enemySpawnTimer = 0; }
-
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                const b = bullets[i]; b.x += b.vx; b.y += b.vy;
-                if (Math.hypot(b.x - player.x, b.y - player.y) > 800) bullets.splice(i, 1);
-            }
-
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i];
-                p.x += p.vx; p.y += p.vy; p.life--;
-                if (p.life <= 0) particles.splice(i, 1);
-            }
-
-            for (let i = chests.length - 1; i >= 0; i--) {
-                const c = chests[i];
-                if (Math.hypot(player.x - c.x, player.y - c.y) < player.radius + 15) {
-                    playSound('chest'); sessionGold += 150; addExp(5);
-                    createExplosion(c.x, c.y, '#FFD700', 20); chests.splice(i, 1);
-                }
-            }
-
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                const e = enemies[i];
-                if (e.flashTimer > 0) e.flashTimer--;
-
-                let eNextX = e.x + Math.cos(Math.atan2(player.y - e.y, player.x - e.x)) * e.speed;
-                let eNextY = e.y + Math.sin(Math.atan2(player.y - e.y, player.x - e.x)) * e.speed;
-
-                rocks.forEach(r => {
-                    if (Math.hypot(eNextX - r.x, eNextY - r.y) < e.radius + r.radius) {
-                        const angle = Math.atan2(eNextY - r.y, eNextX - r.x);
-                        eNextX = r.x + Math.cos(angle) * (e.radius + r.radius);
-                        eNextY = r.y + Math.sin(angle) * (e.radius + r.radius);
-                    }
-                });
-
-                e.x = eNextX; e.y = eNextY;
-
-                if (Math.hypot(player.x - e.x, player.y - e.y) < player.radius + e.radius && player.invincibleTimer === 0) {
-                    player.hp -= e.damage; player.invincibleTimer = 30;
-                    screenShakeTime = 8;
-                    if (player.hp <= 0) { player.hp = 0; triggerGameOver(); return; }
-                }
-
-                if (player.moves[2].level > 0) {
-                    const leafDist = 70;
-                    for (let k = 0; k < player.moves[2].level; k++) {
-                        const lAngle = player.leafAngle + (Math.PI * 2 / player.moves[2].level) * k;
-                        const lx = player.x + Math.cos(lAngle) * leafDist;
-                        const ly = player.y + Math.sin(lAngle) * leafDist;
-                        if (Math.hypot(lx - e.x, ly - e.y) < e.radius + 12) {
-                            let dmg = 0.3 * savedData.dmgMultiplier;
-                            const mult = TYPE_CHART['grass'][e.type] || 1.0;
-                            e.hp -= dmg * mult;
-                        }
-                    }
-                }
-
-                for (let j = bullets.length - 1; j >= 0; j--) {
-                    const b = bullets[j];
-                    if (Math.hypot(b.x - e.x, b.y - e.y) < b.radius + e.radius) {
-                        const mult = TYPE_CHART[b.type][e.type] || 1.0;
-                        const finalDmg = b.damage * mult;
-                        e.hp -= finalDmg; e.flashTimer = 4;
-                        playSound('hit');
-
-                        if (e.isBoss || e.isShiny) screenShakeTime = 4;
-
-                        damageTexts.push({
-                            x: e.x, y: e.y - 10,
-                            text: mult > 1.0 ? `${Math.floor(finalDmg)}! Effective` : `${Math.floor(finalDmg)}`,
-                            color: mult > 1.0 ? '#FFD700' : '#ffffff', opacity: 1.0
-                        });
-
-                        bullets.splice(j, 1);
-                        if (e.hp <= 0) break;
-                    }
-                }
-
-                if (e.hp <= 0) {
-                    createExplosion(e.x, e.y, e.isShiny ? '#FFD700' : '#FF4444');
-                    if (e.isBoss) { chests.push({ x: e.x, y: e.y }); }
-                    else { gems.push({ x: e.x, y: e.y, radius: e.isShiny ? 14 : 10, isShiny: e.isShiny }); }
-                    enemies.splice(i, 1);
-                }
-            }
-
-            for (let i = gems.length - 1; i >= 0; i--) {
-                const g = gems[i];
-                const dist = Math.hypot(player.x - g.x, player.y - g.y);
-                if (dist < player.magnetRadius) {
-                    const angle = Math.atan2(player.y - g.y, player.x - g.x);
-                    g.x += Math.cos(angle) * 6.5; g.y += Math.sin(angle) * 6.5;
-                }
-                if (dist < player.radius + g.radius) {
-                    addExp(g.isShiny ? 5 : 1, g.isShiny); gems.splice(i, 1);
-                }
-            }
-
-            for (let i = damageTexts.length - 1; i >= 0; i--) {
-                const dt = damageTexts[i]; dt.y -= 0.5; dt.opacity -= 0.02;
-                if (dt.opacity <= 0) damageTexts.splice(i, 1);
-            }
-
-            // --- 繪製畫面 ---
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.save();
-
-            let offsetX = 0, offsetY = 0;
-            if (screenShakeTime > 0) {
-                offsetX = (Math.random() - 0.5) * 6;
-                offsetY = (Math.random() - 0.5) * 6;
-                screenShakeTime--;
-            }
-
-            ctx.translate(-camera.x + offsetX, -camera.y + offsetY);
-
-            ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 1;
-            const gridSize = 100;
-            for (let x = 0; x <= WORLD_WIDTH; x += gridSize) {
-                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, WORLD_HEIGHT); ctx.stroke();
-            }
-            for (let y = 0; y <= WORLD_HEIGHT; y += gridSize) {
-                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WORLD_WIDTH, y); ctx.stroke();
-            }
-
-            rocks.forEach(r => {
-                ctx.beginPath(); ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#4a5568'; ctx.fill();
-                ctx.strokeStyle = '#718096'; ctx.lineWidth = 3; ctx.stroke(); ctx.closePath();
-            });
-
-            ctx.strokeStyle = '#FF0000'; ctx.lineWidth = 5;
-            ctx.strokeRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-
-            chests.forEach(c => {
-                ctx.fillStyle = '#FFD700'; ctx.fillRect(c.x - 12, c.y - 10, 24, 20);
-                ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2; ctx.strokeRect(c.x - 12, c.y - 10, 24, 20);
-            });
-
-            gems.forEach(g => {
-                const img = g.isShiny ? images.shinyBall : images.ball;
-                if (img.complete && img.naturalWidth !== 0) {
-                    ctx.drawImage(img, g.x - 12, g.y - 12, 24, 24);
-                } else {
-                    ctx.beginPath(); ctx.arc(g.x, g.y, g.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = g.isShiny ? '#FFD700' : '#00FF66'; ctx.fill(); ctx.closePath();
-                }
-            });
-
-            particles.forEach(p => {
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fillStyle = p.color; ctx.fill(); ctx.closePath();
-            });
-
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.magnetRadius, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 255, 255, 0.04)'; ctx.fill();
-            ctx.strokeStyle = 'rgba(0, 255, 255, 0.15)'; ctx.stroke();
-            ctx.closePath();
-
-            if (player.moves[2].level > 0) {
-                const leafDist = 70;
-                for (let k = 0; k < player.moves[2].level; k++) {
-                    const lAngle = player.leafAngle + (Math.PI * 2 / player.moves[2].level) * k;
-                    const lx = player.x + Math.cos(lAngle) * leafDist;
-                    const ly = player.y + Math.sin(lAngle) * leafDist;
-                    ctx.beginPath(); ctx.arc(lx, ly, 10, 0, Math.PI * 2);
-                    ctx.fillStyle = '#00FF66'; ctx.fill(); ctx.closePath();
-                }
-            }
-
-            const pImg = getPokemonImg(player.pokemonId);
-            if (player.invincibleTimer % 6 < 3) {
-                if (pImg.complete && pImg.naturalWidth !== 0) {
-                    ctx.drawImage(pImg, player.x - 30, player.y - 30, 60, 60);
-                }
-            }
-
-            bullets.forEach(b => {
-                ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
-                ctx.fillStyle = b.color; ctx.fill(); ctx.closePath();
-            });
-
-            enemies.forEach(e => {
-                const eImg = e.isBoss ? images.boss : getPokemonImg(e.pokemonId, e.isShiny);
-                const imgSize = e.isBoss ? 110 : 50;
-
-                if (e.flashTimer > 0) {
-                    ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + 2, 0, Math.PI * 2);
-                    ctx.fillStyle = '#FFFFFF'; ctx.fill(); ctx.closePath();
-                } else if (eImg.complete && eImg.naturalWidth !== 0) {
-                    ctx.drawImage(eImg, e.x - imgSize / 2, e.y - imgSize / 2, imgSize, imgSize);
-                }
-
-                if (e.isShiny) {
-                    ctx.fillStyle = '#FFD700'; ctx.font = "bold 12px sans-serif";
-                    ctx.fillText('✨ Shiny', e.x - 20, e.y - 28);
-                }
-
-                const barWidth = e.isBoss ? 60 : 28;
-                const barHeight = e.isBoss ? 6 : 4;
-                const barOffsetY = e.radius + (e.isBoss ? 15 : 10);
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; ctx.fillRect(e.x - barWidth / 2, e.y - barOffsetY, barWidth, barHeight);
-                ctx.fillStyle = e.isBoss ? '#00FF00' : '#32CD32';
-                ctx.fillRect(e.x - barWidth / 2, e.y - barOffsetY, Math.max(0, (e.hp / e.maxHp) * barWidth), barHeight);
-            });
-
-            damageTexts.forEach(dt => {
-                ctx.fillStyle = dt.color; ctx.font = "bold 13px sans-serif";
-                ctx.globalAlpha = dt.opacity; ctx.fillText(dt.text, dt.x - 10, dt.y);
-                ctx.globalAlpha = 1.0;
-            });
-
-            ctx.restore();
-
-            if (joystick.active) {
-                ctx.beginPath(); ctx.arc(joystick.startX, joystick.startY, 50, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'; ctx.fill();
-                ctx.beginPath(); ctx.arc(joystick.startX + joystick.moveX * 50, joystick.startY + joystick.moveY * 50, 20, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 215, 0, 0.6)'; ctx.fill();
-            }
-
-            ctx.fillStyle = "white"; ctx.font = "14px sans-serif";
-            ctx.fillText(`血量: ${Math.floor(player.hp)} / ${player.maxHp}`, 65, 25);
-            ctx.fillStyle = "#444"; ctx.fillRect(65, 30, 130, 8);
-            ctx.fillStyle = "#FF4444"; ctx.fillRect(65, 30, Math.max(0, (player.hp / player.maxHp) * 130), 8);
-
-            ctx.fillStyle = "white"; ctx.fillText(`等級: ${player.level}`, 65, 55);
-            ctx.fillStyle = "#444"; ctx.fillRect(65, 60, 130, 8);
-            ctx.fillStyle = "#00FF66"; ctx.fillRect(65, 60, (player.exp / player.maxExp) * 130, 8);
-
-            ctx.fillStyle = "#FFD700"; ctx.font = "12px sans-serif";
-            ctx.fillText(`💰 金幣: ${sessionGold}`, 65, 85);
-            ctx.fillText(`⏱ 時間: ${Math.floor(gameTimeFrames / 60)}s`, 65, 100);
-            ctx.fillText(`🌤 天氣: ${currentWeather === 'RAIN' ? '🌧️ 暴風雨' : currentWeather === 'SUNNY' ? '☀️ 烈日' : '晴朗'}`, 65, 115);
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        drawMenuBackground(); updateUI();
-    </script>
-</body>
-</html>
+<html lang="zh-Hant"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>D&D 像素肉鴿大冒險 v12</title>
+<style>
+:root{--bg:#0d0907;--p:#1c130d;--bd:#8c6739;--g:#ffd700;--t:#e0d5c1;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--t);font-family:'Courier New',monospace;overflow:hidden}
+body{display:flex;justify-content:center;align-items:center}
+#g{position:relative;width:100%;height:100%;max-width:1200px;max-height:800px;background:var(--p);overflow:hidden}
+#c{width:100%;height:100%;display:block;image-rendering:pixelated}
+#ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overscroll-behavior:contain;background:rgba(15,10,7,.95);z-index:10;padding:14px;overflow:auto;text-align:center}
+h2{color:#d4a359;margin:0 0 10px}h3{margin:0 0 4px;color:var(--g);font-size:14px}p{margin:4px 0;font-size:12px}
+.b{background:#3a2618;color:var(--t);border:2px solid var(--bd);padding:8px 14px;margin:4px;font:bold 14px inherit;font-family:inherit;cursor:pointer;width:100%;max-width:230px;border-radius:4px}
+.b:active{background:#5c3e28}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;max-height:56vh;overflow:auto;width:100%;max-width:760px;padding:4px}
+.card{background:#2b1d14;border:2px solid #5a4225;padding:8px;text-align:left;font-size:11px;border-radius:4px;cursor:pointer;position:relative}
+.card.sel{border-color:var(--g);background:#422d1f}.card.lock{opacity:.65;filter:grayscale(.8)}
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:720px}.row .card{flex:1;min-width:170px;text-align:center;border-color:#d4a359}
+#hud{position:absolute;top:8px;left:8px;font-size:11px;pointer-events:none;z-index:5;text-shadow:1px 1px #000;width:195px}
+.bar{height:12px;position:relative;background:#333;border:1px solid #000;margin:2px 0}.bar i{display:block;height:100%}.bar span{position:absolute;left:3px;top:-1px;font-size:9px;line-height:12px;color:#fff;text-shadow:1px 1px #000}small{font-size:10px;line-height:1.1}#ov>:first-child{margin-top:auto}#ov>:last-child{margin-bottom:auto}html,body{overscroll-behavior:none}
+#mm{position:absolute;top:8px;right:8px;width:90px;height:90px;border:2px solid #5a4225;background:rgba(0,0,0,.7);z-index:5}
+#pb{position:absolute;top:8px;right:106px;width:auto;padding:0 8px;height:34px;font-size:12px;background:#3a2618;border:2px solid var(--bd);color:var(--g);z-index:6;border-radius:4px}
+#ub{position:absolute;bottom:25px;right:25px;width:76px;height:76px;border-radius:50%;background:#e67e22;border:3px solid var(--g);font-size:22px;line-height:1.05;z-index:6;color:#fff;touch-action:none}
+#ub.dis{opacity:.35;filter:grayscale(1)}
+#js{position:absolute;bottom:25px;left:25px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2);z-index:6;touch-action:none}
+#js i{position:absolute;left:30px;top:30px;width:40px;height:40px;border-radius:50%;background:rgba(212,163,89,.6);border:2px solid var(--g)}
+#ch{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000e;border:3px solid #f35;padding:10px;z-index:99;display:none}
+</style></head><body>
+<div id="g"><canvas id="c"></canvas><div id="hud"></div><canvas id="mm" width="90" height="90"></canvas>
+<button id="pb" onpointerdown="event.preventDefault();pz()">⏸ 暫停</button><button id="ub" class="dis" onpointerdown="event.preventDefault();ult()">⚡<small>大招</small></button>
+<div id="js" style="display:none"><i></i></div><div id="tp" style="position:absolute;bottom:120px;left:12px;font-size:11px;color:#d4a359;pointer-events:none;display:none;z-index:5;text-shadow:1px 1px #000"></div>
+<div id="ch"><b style="color:#f35">開發者控制台 (~)</b><br><button class="b" onclick="god=!god">無敵切換</button><button class="b" onclick="P&&(P.hp=P.maxHp)">回滿血</button><button class="b" onclick="P&&gainXp(P.nx)">升一級</button><button class="b" onclick="P&&boss(bi++)">召喚BOSS</button></div>
+<div id="ov"></div></div>
+<script>
+const $=i=>document.getElementById(i),cv=$('c'),ctx=cv.getContext('2d'),W=5000,R=Math.random,rn=n=>Math.floor(R()*n),KEY='DND_ROGUE_V12';
+const cl=(v,a,b)=>Math.max(a,Math.min(b,v)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+let G={gold:0,vol:50,sel:-1,unl:[],first:true,up:{},ach:{}};
+try{const raw=localStorage.getItem(KEY);if(raw){try{Object.assign(G,JSON.parse(raw))}catch(e){localStorage.setItem(KEY+'_bak',raw)}}}catch(e){}
+if(!Array.isArray(G.unl))G.unl=[];if(!G.up||typeof G.up!='object')G.up={};if(!G.ach||typeof G.ach!='object')G.ach={};G.gold=+G.gold||0;
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}},u=k=>((G.up[G.sel]||{})[k])||0;
+let AC;function snd(f,d=.08,t='square'){if(!G.vol)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=t;o.frequency.value=f;g.gain.value=G.vol/100*.06;o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+
+/* 像素圖 */
+function mk(rows,pal,s=3){const c=document.createElement('canvas');c.width=rows[0].length*s;c.height=rows.length*s;const g=c.getContext('2d');rows.forEach((r,y)=>[...r].forEach((ch,x)=>{if(pal[ch]){g.fillStyle=pal[ch];g.fillRect(x*s,y*s,s,s)}}));return c}
+const HERO=["..HHHH..",".HHHHHH.",".SSSSSS.",".SESSES.",".SSSSSS.","..BBBB..",".BBBBBB.","SBBBBBBS","..D..D..","..D..D.."],HATS=["#8e44ad","#c0392b","#222","#bdc3c7","#a0522d","#27ae60","#7f8c8d","#5dade2","#d4a359"];
+const GOB=["g......g","gg.gg.gg",".gggggg.",".gRggRg.",".gggggg.","..gWWg..",".gggggg.","..g..g.."],EYE=["o..oo..o",".oooooo.","oowwwwoo","oowkkwoo","oowkkwoo","oowwwwoo",".oooooo.","..o..o.."],SLM=["...bbbb...","..bbbbbb..",".bbWkbWkb.","bbbbbbbbbb","bbbbbbbbbb",".bbbbbbbb."];
+const BOS=["c..........c","cc........cc",".cccccccccc.","cccccccccccc","ccYYccccYYcc","ccYKccccKYcc","cccccddccccc",".cWcWcWcWcc.",".cccccccccc.","..cc....cc..","..cc....cc..",".ccc....ccc."],DOG=["bb....bb","bbbbbbbb","bkbbbbkb","bbbwwbbb",".bbbbbb.",".b....b."];
+const CHS=[".bbbbbbbb.","bBBBBBBBBb","bBBBBBBBBb","bGGGGGGGGb","bBBBGGBBBb","bBBBBBBBBb","bBBBBBBBBb",".bbbbbbbb."],COI=[".GGGG.","GYYYYG","GYGGYG","GYGGYG","GYYYYG",".GGGG."],GEM=["...c...","..cWc..",".cWccc.","ccccccc",".cccbc.","..cbc..","...c..."],BAR=[".RRRRRR.","RBBBBBBR","RBBBBBBR","RWWWWWWR","RBBBBBBR","RBBBBBBR",".RRRRRR."];
+/* 資料 */
+const H=[['阿啾','吟遊詩人','#FF5733','wave',25,5,1.2,2.8,0,0,'穿透型擴散音波','血量低'],['鹿人','火巫師','#33FF57','fire',30,10,.6,2.8,0,100,'高傷火球(耗魔)','依賴魔力'],['啾啾妹','刺客','#FF33A8','dagger',20,4,.3,3.8,0,150,'極速近戰','射程極短'],['辛卡','戰士','#3357FF','sword',40,8,.8,2.2,2,200,'巨劍半月橫掃','移速慢'],['泰泰','猴子','#F3FF33','staff',30,3,.4,2.8,0,200,'長棍橫掃+35%閃避','傷害低'],['江江','弓箭手','#33FFF0','arrow',22,5,.35,2.8,0,250,'遠程高射速','近身脆弱'],['阿誠','坦克','#A833FF','shield',50,5,.65,1.8,4,300,'盾擊擊退+高防','移動慢'],['小慢','冰法師','#FF8633','ice',28,6,.5,2.8,0,350,'冰晶減速(耗魔)','依賴魔力'],['學長','牧場主','#808080','summon',22,4,1,2.8,0,400,'召喚動物戰鬥','本體弱']];
+const M={dagger:[44,1,8,'#ff33a8',3],sword:[68,2.4,14,'#6c8cff',7],staff:[84,1.8,12,'#f3ff33',5],shield:[50,1.8,12,'#c28aff',9]};
+const CN={wave:['共振擴音',{area:.25}],fire:['滅世黑炎',{cnt:1}],dagger:['致命一擊',{crit:.08,cdmg:.2}],sword:['旋風巨劍',{area:.2}],staff:['定海神針',{area:.25}],arrow:['多重齊射',{cnt:1}],shield:['聖盾堅守',{def:1,area:.15}],ice:['冰晶散射',{cnt:1}],summon:['萬獸奔騰',{cnt:1}]};
+const PS=[['鐵骨',{hp:.15}],['疾風',{spd:.08}],['磁石',{magnet:.35}],['再生',{regen:.4}],['護甲',{def:1}],['銳眼',{crit:.05}],['貪婪',{gold:.25}],['吸血',{ls:.5}]];
+const L={area:'範圍',dmg:'傷害',rate:'攻速',cnt:'數量',crit:'暴擊率',cdmg:'暴傷',hp:'生命',spd:'移速',def:'防禦',magnet:'拾取',regen:'回復/秒',gold:'金幣',ls:'擊殺回血'},AB=['cnt','def','regen','ls'];
+const desc=m=>Object.entries(m).map(([k,v])=>L[k]+(v>0?'+':'')+(AB.includes(k)?+v.toFixed(1):Math.round(v*100)+'%')).join(' ');
+const EQ=[['吸血斗篷',{ls:.5}],['電磁之靴',{spd:.12}],['狂暴戒',{crit:.08}],['龍鱗聖鎧',{def:1.5,hp:.12}],['魔鬼契約',{dmg:.4,hp:-.25}],['貪婪之眼',{gold:.3,magnet:.4}]],RAR=['普通','稀有','史詩','傳說'],RM=[1,1.5,2,3];
+const BT=[['奪心魔','#800080',100,.8,6],['遠古紅龍','#ff3333',140,.7,8],['巫妖','#9b59b6',110,.9,7],['眼魔領主','#e67e22',120,1,8],['牛頭人酋長','#795548',150,1.1,9],['深淵惡魔','#c0392b',160,.95,9],['石像鬼王','#7f8c8d',170,.6,6],['死亡騎士','#2c3e50',170,.85,9],['九頭蛇','#27ae60',200,.5,10],['陰影巨龍(最終)','#34495e',260,.75,12]];
+const E0={goblin:{r:12,hp:6,sp:1.5,dm:2,col:'#2ed573'},archer:{r:11,hp:5,sp:1.1,dm:2,col:'#c8e06b'},beholder:{r:10,hp:4,sp:2.3,dm:3,col:'#ffa502'},slime:{r:14,hp:10,sp:.9,dm:3,col:'#1e90ff'},ogre:{r:20,hp:40,sp:.7,dm:7,col:'#a0522d'},bomber:{r:11,hp:5,sp:2,dm:0,col:'#e84393'}};
+const UP={hp:['基礎血量',10,20,5],speed:['移動速度',10,20,.2],magnet:['拾取範圍',10,15,20],regen:['每秒回復',5,30,.2],power:['基礎力量',10,25,1],cd:['冷卻縮減',5,35,.05],defense:['基礎防禦',10,20,1],critRate:['暴擊率',10,30,.05],critDamage:['暴擊傷害',10,25,.2]};
+const UNLOCK=200;const SP={};
+function build(){SP.h=H.map((h,i)=>mk(HERO,{H:HATS[i],S:'#f1c27d',B:h[2],E:'#111',D:'#2b1d14'}));
+SP.goblin=mk(GOB,{g:'#2ed573',R:'#ff4757',W:'#fff'});SP.archer=mk(GOB,{g:'#c8e06b',R:'#222',W:'#a0522d'});SP.ogre=mk(GOB,{g:'#a0522d',R:'#ff0',W:'#fff'},5);SP.bomber=mk(GOB,{g:'#e84393',R:'#ff0',W:'#222'});
+SP.beholder=mk(EYE,{o:'#ffa502',w:'#fff',k:'#111'});SP.slime=mk(SLM,{b:'rgba(30,144,255,.9)',W:'#fff',k:'#111'});
+SP.boss=BT.map(b=>mk(BOS,{c:b[1],d:'#000',Y:'#ff0',K:'#f00',W:'#fff'},4));
+SP.pet=['#c8a165','#f1c40f','#ffb3c1'].map(c=>mk(DOG,{b:c,k:'#111',w:'#fff'}));
+SP.chest=mk(CHS,{b:'#3b2410',B:'#8c6739',G:'#ffd700'});SP.rock=mk(["..kkkk..",".kLLLkk.","kLLkkkkk","kLkkkddk","kkkkkddk",".kkdddk.","..kkkk.."],{k:'#7f8c8d',L:'#aab7b8',d:'#4d5656'},6);SP.coin=mk(COI,{G:'#b8860b',Y:'#ffd700'},2);SP.gem=mk(GEM,{c:'#3498db',W:'#d6eaf8',b:'#1b4f72'},2);SP.barrel=mk(BAR,{R:'#5a3d28',B:'#8c6739',W:'#e74c3c'})}
+function spr(c,x,y,f){ctx.save();ctx.translate(Math.round(x),Math.round(y));if(f)ctx.scale(-1,1);ctx.drawImage(c,-c.width/2,-c.height/2);ctx.restore()}
+
+/* 狀態 */
+let P,B,SW,E,PT,IT,FT,CH,FX,HZ,RK,fr,T,kills,run,S='menu',god=false,nextBoss,bi,finalSp,ct,raf,back='menu',cam={x:0,y:0},keys={},jv={x:0,y:0},tip='',rst=0;
+const ov=$('ov');
+function ui(on){['hud','mm','pb','ub'].forEach(i=>$(i).style.display=on?'block':'none');if(!on&&window.joyReset)joyReset()}
+function scr(h){ov.style.display='flex';ov.innerHTML=h;ov.scrollTop=0;ui(0)}
+function fixScroll(){const g=$('g');g.scrollTop=0;g.scrollLeft=0;ov.scrollTop=0;window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0}
+function hideScr(){ov.style.display='none';ui(1);fixScroll();setTimeout(fixScroll,50)}
+function rsz(){cv.width=$('g').clientWidth;cv.height=$('g').clientHeight}
+/* 選單 */
+function menu(){S='menu';cancelAnimationFrame(raf);scr(`<h1 style="color:#d4a359;margin:0 0 6px">D&D 像素肉鴿</h1><p style="color:#ffd700">💰 ${G.gold}</p>
+<button class=b onclick="start()">⚔️ 開始遊玩</button><button class=b onclick="heroes()">👤 角色與職業</button><button class=b onclick="ups()">🛡️ 永久升級</button><button class=b onclick="achv()">${AL.some(a=>G.ach[a[0]]==1)?'🔴 ':''}🏆 成就</button><button class=b onclick="sets('menu')">⚙️ 設定</button>
+<p style="max-width:300px;color:#aaa">WASD/方向鍵移動・空白鍵大招・自動攻擊。擊敗每90秒出現的BOSS，撐過10分鐘並擊敗最終BOSS即可通關！</p>`)}
+function heroes(){const first=G.first;scr(`<h2>選擇英雄</h2><p style="color:#ffd700">${first?'🌟 首次可免費解鎖任意1名角色！':''} ${tip}</p><div class=grid>${H.map((h,i)=>{const un=G.unl.includes(i);return `<div class="card${i==G.sel?' sel':''}${un?'':' lock'}" onclick="selH(${i})"><img src="${SP.h[i].toDataURL()}" style="float:right;width:30px"><b>${h[0]}</b>${un?'':` 🔒${UNLOCK}💰`}<br><span style="color:#3498db">${h[1]}</span><br><span style="color:#2ecc71">💪${h[10]}</span><br><span style="color:#e74c3c">⚠️${h[11]}</span></div>`}).join('')}</div><button class=b onclick="tip='';menu()">返回</button>`)}
+function selH(i){tip='';if(G.first){G.unl.push(i);G.sel=i;G.first=false}else if(G.unl.includes(i))G.sel=i;else if(G.gold>=UNLOCK){G.gold-=UNLOCK;G.unl.push(i);G.sel=i}else tip='❌ 金幣不足';save();heroes()}
+const ucost=k=>Math.floor(UP[k][2]*Math.pow(1.5,u(k)));
+function ups(){scr(`<p style="color:#8f8;margin:0 0 6px">目前角色：${G.sel>=0?H[G.sel][0]+'・'+H[G.sel][1]:'尚未選擇角色'}（升級只對此角色有效）</p><h2>永久升級</h2><p style="color:#ffd700">💰 ${G.gold}</p><div class=grid>${Object.keys(UP).map(k=>{const c=UP[k],l=u(k);return `<div class=card style="cursor:default"><b>${c[0]}</b> (${l}/${c[1]})<br>+${c[3]}/級<br><button class=b style="margin:4px 0;padding:4px" onclick="buy('${k}')" ${l>=c[1]?'disabled':''}>${l>=c[1]?'滿級':ucost(k)+'💰'}</button></div>`}).join('')}</div><button class=b onclick="menu()">返回</button>`)}
+function buy(k){if(G.sel<0)return;if(G.gold>=ucost(k)&&u(k)<UP[k][1]){G.gold-=ucost(k);(G.up[G.sel]=G.up[G.sel]||{})[k]=u(k)+1;save();snd(800);ups()}}
+const AL=[['kill30','哥布林剋星','單局擊殺30隻',100],['nat20','天命大骰子','擲出Natural 20',50],['chest','尋寶獵人','開啟寶箱',80],['boss','屠龍者','擊敗任一BOSS',150],['win','傳奇英雄','通關10分鐘',500]];
+function achv(){scr(`<h2>成就</h2><p style="color:#aaa">達成後需按「領取」才會獲得獎勵</p><div class=grid>${AL.map(a=>{const s=G.ach[a[0]]|0;return `<div class=card style="cursor:default;border-color:${s?'#ffd700':'#5a4225'}"><b>${a[1]}</b> ${s==2?'✅ 已領取':s==1?'🎉 可領取':'🔒 未達成'}<br>${a[2]}<br><span style="color:#ffd700">獎勵 ${a[3]}💰</span>${s==1?`<br><button class=b style="margin:4px 0;padding:4px" onclick="claim('${a[0]}')">領取</button>`:''}</div>`}).join('')}</div><button class=b onclick="menu()">返回</button>`)}
+function claim(k){if(G.ach[k]!=1)return;const a=AL.find(x=>x[0]==k);G.ach[k]=2;G.gold+=a[3];save();snd(800);achv()}
+function achv0(){scr(`<h2>成就</h2><div class=grid>${AL.map(a=>`<div class=card style="cursor:default;border-color:${G.ach[a[0]]?'#ffd700':'#5a4225'}"><b>${a[1]}</b> ${G.ach[a[0]]?'✅':'🔒'}<br>${a[2]}<br><span style="color:#ffd700">獎勵 ${a[3]}💰</span></div>`).join('')}</div><button class=b onclick="menu()">返回</button>`)}
+function ach(k){if(G.ach[k])return;G.ach[k]=1;const a=AL.find(x=>x[0]==k);save();if(P)ft(P.x,P.y-40,'🏆 成就達成「'+a[1]+'」！請到主選單的成就頁領取','#ffd700',14);if(0)ft(0,0,'🏆 '+a[1]+' +'+a[3],'#ffd700',14)}
+function sets(from){back=from;scr(`<h2>設定</h2><div>🔊 音量 <input type=range min=0 max=100 value=${G.vol} oninput="G.vol=+this.value;$('vv').innerText=this.value+'%';save()"> <span id=vv>${G.vol}%</span></div><br><button class=b style="background:#721c24" onclick="if(rst){localStorage.removeItem('${KEY}');location.reload()}else{rst=1;this.innerText='再按一次確認清空'}">⚠️ 清空存檔</button><button class=b onclick="rst=0;back=='pause'?pauseS():menu()">返回</button>`)}
+function pauseS(){scr(`<h2>⏸ 暫停</h2><button class=b onclick="pz()">▶ 繼續</button><button class=b onclick="sets('pause')">⚙️ 設定</button><button class=b onclick="save();menu()">🏠 結束本局(保留金幣)</button>`)}
+function pz(){if(S=='play'){S='pause';pauseS()}else if(S=='pause'){S='play';hideScr()}}
+
+/* 能力計算 */
+L.kb='擊退力';AB.push('kb');function defs(ty){const d={c0:{n:CN[ty][0],m:CN[ty][1],c:1},c1:{n:'專精強化',m:{dmg:.25},c:1},c2:{n:'疾速訓練',m:{rate:.15},c:1}};PS.forEach((p,i)=>d['p'+i]={n:p[0],m:p[1]});if(ty=='arrow')d.c3={n:'強力擊退',m:{kb:1},c:1};return d}
+function recalc(){const p=P,h=p.h,s={dmg:1,rate:1,area:1,cnt:0,crit:.03+u('critRate')*.05,cdmg:1.3+u('critDamage')*.2,hp:0,spd:1,def:0,magnet:1,regen:0,gold:1,ls:0,dodge:h[3]=='staff'?.35:0};
+const add=(m,k)=>{for(const x in m)s[x]=(s[x]||0)+m[x]*k};for(const id in p.lv)add(p.defs[id].m,p.lv[id]);p.eq.forEach(e=>add(e.m,e.r));
+const old=p.maxHp;p.s=s;p.maxHp=Math.round((h[4]*.65+u('hp')*5)*Math.max(.3,1+s.hp));if(p.maxHp>old)p.hp+=p.maxHp-old;p.hp=Math.min(p.hp,p.maxHp);
+p.spd=(h[7]*.85+u('speed')*.2)*s.spd;p.def=h[8]*.5+u('defense')+s.def;p.pw=(h[5]*.7+u('power'))*s.dmg;p.cd=Math.max(.08,h[6]*1.2*(1-u('cd')*.05)/s.rate);p.mag=(40+u('magnet')*20)*s.magnet;p.reg=u('regen')*.2+s.regen}
+
+/* 開局 */
+function start(){if(G.sel<0)return heroes();const h=H[G.sel];rsz();
+P={x:W/2,y:W/2,r:12,h,lv:{},eq:[],defs:defs(h[3]),face:1,hurt:0,inv:0,level:1,xp:0,nx:12,pend:0,ult:0,cdT:0,mp:50,hp:0,maxHp:0,pets:[],s:{}};recalc();P.mp=50;
+B=[];SW=[];E=[];PT=[];IT=[];FT=[];CH=[];FX=[];HZ=[];RK=[];fr=0;T=0;kills=0;run=0;nextBoss=90;bi=0;finalSp=0;S='play';god=false;
+for(let i=0;i<40;i++){const r=()=>150+R()*(W-300);HZ.push({x:r(),y:r(),r:42,k:'mud'},{x:r(),y:r(),r:20,k:'spike',cd:0},{x:r(),y:r(),r:15,k:'bar'});if(i<12)HZ.push({x:r(),y:r(),r:34,k:'spring'})}
+for(let i=0;i<1500&&RK.length<110;i++){const x=100+R()*(W-200),y=100+R()*(W-200),r=20+R()*8;if(Math.hypot(x-W/2,y-W/2)<260)continue;if(RK.some(o=>Math.hypot(o.x-x,o.y-y)<o.r+r+30))continue;RK.push({x,y,r,f:R()<.5,s:r/22})}
+HZ=HZ.filter(h=>!RK.some(o=>Math.hypot(o.x-h.x,o.y-h.y)<o.r+h.r+10));
+hideScr();hud();window.hint&&hint();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
+function loop(){if(S=='menu')return;if(S=='play'||S=='over'&&false)upd();if(P)draw();raf=requestAnimationFrame(loop)}
+
+/* 工具 */
+const ft=(x,y,t,c,s=12)=>FT.push({x,y,t,c,s,l:30}),pt=(x,y,c,n)=>{for(let i=0;i<n;i++)PT.push({x,y,vx:(R()-.5)*4,vy:(R()-.5)*4,c,a:1})};
+const near=(x,y,m=1e9)=>{let t=null;for(const e of E){const d=Math.hypot(e.x-x,e.y-y);if(d<m){m=d;t=e}}return t};
+const angD=(a,b)=>{let d=a-b;while(d>Math.PI)d-=6.2832;while(d<-Math.PI)d+=6.2832;return Math.abs(d)};
+function hit(e,d,cr,nat,col){if(e.dead)return;e.hp-=d;snd(150,.04,'sawtooth');ft(e.x,e.y-10,(nat?'NAT20! ':cr?'暴擊! ':'')+Math.floor(d),cr?'#ff3355':'#fff',cr?16:12);pt(e.x,e.y,col,3);if(e.hp<=0)kill(e)}
+function hurt(d){if(P.inv>0||god)return;if(R()<P.s.dodge){ft(P.x,P.y-15,'閃避!','#3498db');P.inv=10;return}d=Math.max(1,d-P.def);P.hp-=d;P.hurt=12;P.inv=18;ft(P.x,P.y-15,'-'+Math.floor(d),'#ff6b6b');snd(100,.1)}
+function boom(x,y,r,d,toE,toP){FX.push({x,y,r:10,m:r});snd(80,.3);pt(x,y,'#e74c3c',14);if(toE)E.slice().forEach(e=>{if(Math.hypot(e.x-x,e.y-y)<r+e.r)hit(e,d,true,false,'#ff4757')});if(toP&&Math.hypot(P.x-x,P.y-y)<r)hurt(d*.3)}
+function barrel(h){const i=HZ.indexOf(h);if(i<0)return;HZ.splice(i,1);boom(h.x,h.y,100,25+T/6,true,true);HZ.slice().forEach(o=>{if(o.k=='bar'&&Math.hypot(o.x-h.x,o.y-h.y)<100)barrel(o)})}
+const push=(o,r)=>{for(const k of RK){const dx=o.x-k.x,dy=o.y-k.y,d=Math.hypot(dx,dy),m=k.r+r;if(d<m){if(d>.01){o.x=k.x+dx/d*m;o.y=k.y+dy/d*m}else o.x+=m}}};
+function shoot(e,a,v,d){B.push({x:e.x,y:e.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,r:5,d,en:1,life:140,a})}
+
+/* 攻擊 */
+function atk(t){const ty=P.h[3],nat=rn(20)==19,cr=nat||R()<P.s.crit,d=P.pw*(cr?P.s.cdmg*(nat?1.3:1):1),a=Math.atan2(t.y-P.y,t.x-P.x);if(nat)ach('nat20');snd(400,.06);
+if(ty=='wave')B.push({x:P.x,y:P.y,vx:0,vy:0,r:10,max:170*P.s.area,d,cr,nat,wave:1,col:'#ff7f50',life:200,hit:new Set(),pen:1e9});
+else if(M[ty]){const m=M[ty];SW.push({a,rg:m[0]*P.s.area,arc:Math.min(5.6,m[1]*(1+(P.s.area-1)*.6)),life:m[2],max:m[2],col:m[3],th:m[4],d,cr,nat,ty,kb:ty=='shield'?22*P.s.area:0,hit:new Set()});P.face=Math.cos(a)>=0?1:-1}
+else{const n=1+P.s.cnt,sp=ty=='fire'?5.5:7.5;for(let i=0;i<n;i++){const q=a+(i-(n-1)/2)*.2;B.push({x:P.x,y:P.y,vx:Math.cos(q)*sp,vy:Math.sin(q)*sp,a:q,r:cr?6:4,d,cr,nat,ty,col:ty=='fire'?'#ff4757':ty=='ice'?'#70a1ff':'#33fff0',pen:ty=='arrow'?2:0,life:90,hit:new Set()})}}}
+function ult(){if(S!='play')return;if(P.ult<100){ft(P.x,P.y-30,'大招充能中 '+Math.floor(P.ult)+'/100','#aaa',13);return}P.ult=0;snd(200,.4,'sawtooth');const ty=P.h[3];FX.push({x:P.x,y:P.y,r:10,m:320});ft(P.x,P.y-30,'終極大招!','#ffd700',20);
+E.slice().forEach(e=>{if(dist(e,P)<320){hit(e,P.pw*4+20,true,false,'#ffd700');if(ty=='ice')e.sl=240;if(ty=='shield'&&!e.boss){const a=Math.atan2(e.y-P.y,e.x-P.x);e.x+=Math.cos(a)*80;e.y+=Math.sin(a)*80}}});
+B=B.filter(b=>!b.en||dist(b,P)>320);if(ty=='shield'||ty=='sword'){P.inv=200;P.hp=Math.min(P.maxHp,P.hp+P.maxHp*.25)}
+if(ty=='summon')for(let i=0;i<6;i++)P.pets.push({x:P.x,y:P.y,cd:0,face:1,k:i%3,tmp:600,hp:8,mx:8,r:10})}
+
+/* 經驗/升級 */
+function gainXp(v){P.xp+=v;while(P.xp>=P.nx){P.xp-=P.nx;P.level++;P.nx=Math.floor(10+P.level*P.level*2.5+P.level*8);P.pend++;snd(600,.25,'triangle')}if(P.pend>0&&S=='play')lvUI()}
+function lvUI(){if(P.pend<=0)return;P.pend--;const pool=Object.keys(P.defs).filter(k=>(P.lv[k]||0)<5);if(!pool.length){P.hp=P.maxHp;return lvUI()}
+S='modal';const ch=pool.sort(()=>R()-.5).slice(0,3);scr(`<h2 style="color:#ffd700">⬆ 等級 ${P.level}！選擇強化</h2><div class=row>${ch.map(k=>{const d=P.defs[k],l=P.lv[k]||0;return `<div class=card onclick="pick('${k}')"><h3>${d.c?'★':''}${d.n} <small>Lv${l}→${l+1}</small></h3><p style="color:#3498db">${d.c?'職業技能':'通用被動'}（最高5級）</p><p>${desc(d.m)}</p></div>`}).join('')}</div>`)}
+function pick(k){P.lv[k]=(P.lv[k]||0)+1;recalc();S='play';hideScr();if(P.pend>0)lvUI()}
+/* 寶箱 */
+function closeChest(){S='play';hideScr();if(P.pend>0)lvUI()}
+function chest(){S='modal';scr(`<h2 style="color:#ffd700">🎁 神秘寶箱</h2><div id=dc style="font-size:44px;color:#ff3355;margin:12px">🎲 20</div><p id=cr>擲骰中…</p><button class=b id=cb style="display:none" onclick="closeChest()">收下</button>`);let n=0;clearInterval(ct);
+ct=setInterval(()=>{$('dc').innerText='🎲 '+(1+rn(20));if(++n>14){clearInterval(ct);const r=1+rn(20),ri=r==20?3:r>=17?2:r>=10?1:0,q=EQ[rn(EQ.length)];
+if(P.eq.length>=3){P.eq.sort((a,b)=>a.r-b.r);P.eq.shift()}P.eq.push({n:q[0],m:q[1],r:RM[ri],ri});recalc();ach('chest');
+$('dc').innerText='🎲 '+r;$('cr').innerHTML=`<b>【${RAR[ri]}】${q[0]}</b><br>${desc(Object.fromEntries(Object.entries(q[1]).map(([k,v])=>[k,v*RM[ri]])))}<br><small>(最多3件，滿了替換最弱)</small>`;$('cb').style.display='inline-block'}},80)}
+
+/* BOSS / 敵人 */
+function boss(i,fin){const b=BT[Math.min(i,9)],a=R()*6.28,hp=b[2]*7*(1+T/240)*(fin?1.8:1);E.push({x:cl(P.x+Math.cos(a)*350,30,W-30),y:cl(P.y+Math.sin(a)*350,30,W-30),r:26,ty:'boss',boss:1,fin,bi:Math.min(i,9),name:b[0],hp,mx:hp,sp:b[3],dm:b[4],col:b[1],atk:0,sl:0,t:0,pat:0,dash:0});ft(P.x,P.y-50,'⚠️ '+b[0]+' 降臨！','#ff3355',18)}
+function spawn(){const a=R()*6.28,d=Math.max(cv.width,cv.height)/2+60,av=['goblin','goblin'];if(T>20)av.push('beholder');if(T>30)av.push('slime');if(T>45)av.push('archer');if(T>90)av.push('bomber');if(T>120)av.push('ogre');
+const ty=av[rn(av.length)],b=E0[ty],el=R()<.06&&T>30;let hp=b.hp*(1+T/100+kills*.003),r=b.r;if(el){hp*=2.5;r*=1.3}
+E.push({x:cl(P.x+Math.cos(a)*d,20,W-20),y:cl(P.y+Math.sin(a)*d,20,W-20),ty,r,hp,mx:hp,sp:b.sp,dm:b.dm,col:b.col,atk:0,sl:0,el,t:0})}
+function kill(e){if(e.dead)return;e.dead=1;kills++;P.ult=Math.min(100,P.ult+(e.boss?35:e.el?10:4));
+if(e.ty=='slime'&&e.r>10)for(let i=0;i<2;i++)E.push({x:e.x+R()*12-6,y:e.y+R()*12-6,ty:'slime',r:8,hp:4*(1+T/100),mx:4,sp:1.3,dm:2,col:'#1e90ff',atk:0,sl:0,t:0,sm:1});
+IT.push({x:e.x,y:e.y,k:'xp',v:e.boss?60:e.el?15:4});if(R()<.4||e.boss||e.el)IT.push({x:e.x+6,y:e.y,k:'gold',v:e.boss?60:e.el?15:3});
+if(R()<(e.el?.15:.03))IT.push({x:e.x-6,y:e.y,k:'heart',v:P.maxHp*.2});if(R()<.012)IT.push({x:e.x,y:e.y+8,k:'mag'});
+if(e.boss){CH.push({x:e.x,y:e.y});ach('boss');if(e.fin)setTimeout(()=>end(true),600)}
+if(P.s.ls)P.hp=Math.min(P.maxHp,P.hp+P.s.ls);pt(e.x,e.y,e.col,8);const i=E.indexOf(e);if(i>=0)E.splice(i,1);if(kills>=30)ach('kill30')}
+function end(win){if(S=='over')return;S='over';clearInterval(ct);if(win)ach('win');const g=run+(win?200:0);G.gold+=win?200:0;save();
+scr(`<h2 style="color:${win?'#ffd700':'#e74c3c'}">${win?'🏆 通關勝利！':'你倒下了…'}</h2><p>存活 ${Math.floor(T/60)}分${T%60}秒 ・ 擊殺 ${kills}</p><p>等級 ${P.level} ・ 獲得金幣 ${g}${win?'（含通關獎勵200）':''}</p><button class=b onclick="menu()">返回主選單</button><button class=b onclick="start()">再來一局</button>`)}
+
+/* 更新 */
+function upd(){fr++;if(fr%60==0){T++;P.ult=Math.min(100,P.ult+1);if(T>=nextBoss&&T<600){boss(bi++);nextBoss+=90}if(T==600&&!finalSp){finalSp=1;boss(9,true)}}
+let dx=0,dy=0;if(keys.w||keys.arrowup)dy--;if(keys.s||keys.arrowdown)dy++;if(keys.a||keys.arrowleft)dx--;if(keys.d||keys.arrowright)dx++;if(dx&&dy){dx*=.7071;dy*=.7071}if(jv.x||jv.y){dx=jv.x;dy=jv.y}if(dx)P.face=dx>0?1:-1;
+let sp=P.spd;HZ.forEach(h=>{const d=Math.hypot(P.x-h.x,P.y-h.y);if(h.k=='mud'&&d<h.r)sp*=.55;if(h.k=='spring'&&d<h.r&&fr%30==0)P.hp=Math.min(P.maxHp,P.hp+1);if(h.k=='spike'){if(h.cd>0)h.cd--;else if(d<h.r){hurt(3);h.cd=60}}});
+P.x=cl(P.x+dx*sp,12,W-12);P.y=cl(P.y+dy*sp,12,W-12);push(P,P.r);P.x=cl(P.x,12,W-12);P.y=cl(P.y,12,W-12);if(P.hurt>0)P.hurt--;if(P.inv>0)P.inv--;P.hp=Math.min(P.maxHp,P.hp+P.reg/60);const mpu=P.h[3]=='fire'||P.h[3]=='ice';if(mpu)P.mp=Math.min(50,P.mp+6/60);
+const ty=P.h[3];if(P.cdT>0)P.cdT--;else if(ty!='summon'){const t=near(P.x,P.y,M[ty]||ty=='wave'?200*P.s.area:520);if(t&&(!mpu||P.mp>=4)){atk(t);if(mpu)P.mp-=4;P.cdT=Math.round(P.cd*60)}}
+if(ty=='summon'){const want=Math.min(8,1+((P.level/4)|0)+P.s.cnt);if(P.petCd>0)P.petCd--;else if(P.pets.filter(p=>!p.tmp).length<want){const ph=10+P.level*2;P.pets.push({x:P.x,y:P.y,cd:0,face:1,k:P.pets.length%3,hp:ph,mx:ph,r:10});ft(P.x,P.y-20,'召喚夥伴','#ffb3c1',11)}}
+const taken=new Set();P.pets=P.pets.filter(s=>{if(s.tmp&&--s.tmp<=0)return false;if(s.hp<=0){pt(s.x,s.y,'#ffb3c1',8);if(!s.tmp)P.petCd=240;ft(s.x,s.y-12,'夥伴倒下…','#ffb3c1',11);return false}if(s.cd>0)s.cd--;let t=null;if(s.tg&&!s.tg.dead&&(!taken.has(s.tg)||s.tg.boss)&&Math.hypot(s.tg.x-s.x,s.tg.y-s.y)<480)t=s.tg;else{let bd=420;for(const q of E){if(q.dead||(taken.has(q)&&!q.boss))continue;const dd=Math.hypot(q.x-s.x,q.y-s.y);if(dd<bd){bd=dd;t=q}}}s.tg=t;if(t)taken.add(t);if(t){const a=Math.atan2(t.y-s.y,t.x-s.x);s.x+=Math.cos(a)*3.2;s.y+=Math.sin(a)*3.2;s.face=t.x>s.x?1:-1;if(s.cd<=0&&Math.hypot(t.x-s.x,t.y-s.y)<14+t.r){s.cd=Math.round(30/P.s.rate);hit(t,P.pw,false,false,'#eccc68')}}else{const d=dist(P,s);if(d>40){const a=Math.atan2(P.y-s.y,P.x-s.x);s.x+=Math.cos(a)*2.4;s.y+=Math.sin(a)*2.4}}push(s,6);return true});
+SW.forEach(s=>{s.life--;for(const e of E.slice()){if(s.hit.has(e)||e.dead)continue;if(dist(e,P)<s.rg+e.r&&angD(Math.atan2(e.y-P.y,e.x-P.x),s.a)<=s.arc/2+.1){s.hit.add(e);hit(e,s.d,s.cr,s.nat,s.col);if(s.kb&&!e.dead&&!e.boss){const a=Math.atan2(e.y-P.y,e.x-P.x);e.x+=Math.cos(a)*s.kb;e.y+=Math.sin(a)*s.kb}}}HZ.slice().forEach(h=>{if(h.k=='bar'&&dist(h,P)<s.rg+15)barrel(h)})});SW=SW.filter(s=>s.life>0);
+for(const b of B){b.x+=b.vx;b.y+=b.vy;b.life--;if(!b.wave&&RK.some(k=>Math.hypot(k.x-b.x,k.y-b.y)<k.r)){b.life=0;continue}if(b.en){if(Math.hypot(P.x-b.x,P.y-b.y)<P.r+b.r){hurt(b.d);b.life=0}continue}
+if(b.wave){b.r+=1.8;if(b.r>=b.max)b.life=0}HZ.forEach(h=>{if(h.k=='bar'&&Math.hypot(h.x-b.x,h.y-b.y)<b.r+15){barrel(h);if(!b.wave)b.life=0}});
+for(const e of E.slice()){if(b.life<=0)break;if(b.hit.has(e)||e.dead)continue;const ok=b.wave?Math.abs(Math.hypot(b.x-e.x,b.y-e.y)-b.r)<e.r+6:Math.hypot(b.x-e.x,b.y-e.y)<b.r+e.r;if(!ok)continue;b.hit.add(e);if(b.ty=='ice')e.sl=100;hit(e,b.d,b.cr,b.nat,b.col);if(b.ty=='arrow'&&P.s.kb&&!e.dead){const kv=P.s.kb*14*(e.boss?.3:1);e.x+=Math.cos(b.a)*kv;e.y+=Math.sin(b.a)*kv;push(e,e.r)}if(b.pen>0)b.pen--;else b.life=0}}
+B=B.filter(b=>b.life>0);
+if(fr%Math.max(14,Math.floor(50-T/6))==0&&E.length<170)for(let i=0;i<1+Math.floor(T/150);i++)spawn();
+const ds=1+T/300;
+for(const e of E.slice()){if(e.dead)continue;if(e.sl>0)e.sl--;let sp=e.sp*(e.sl>0?.5:1)*(e.el?1.15:1)*Math.min(1.5,1+T/700);const ex=P.x-e.x,ey=P.y-e.y,d=Math.hypot(ex,ey)||1,a=Math.atan2(ey,ex);e.face=ex>0?1:-1;
+if(e.ty=='archer'){sp*=d>230?1:d<150?-.8:0;if(++e.t%90==0&&d<430)shoot(e,a,3.5,e.dm*ds)}
+else if(e.boss){e.t++;if(e.t%130==0){if(e.pat++%2==0){for(let i=0;i<12;i++)shoot(e,i*.5236,3,e.dm*ds*.6)}else e.dash=30}if(e.dash>0){e.dash--;sp*=4}}
+else if(e.ty=='bomber'&&d<34){boom(e.x,e.y,75,10*ds,false,true);const i=E.indexOf(e);if(i>=0)E.splice(i,1);continue}
+let ax=Math.cos(a),ay=Math.sin(a);for(const k of RK){const rx=k.x-e.x,ry=k.y-e.y,rd=Math.hypot(rx,ry),mm=k.r+e.r+40;if(rd<mm&&rd>.01&&rx*ax*Math.sign(sp||1)+ry*ay*Math.sign(sp||1)>0){const side=(rx*-ay+ry*ax)>0?-1:1,w=(1-rd/mm)*2.2;ax+=-ay*side*w-rx/rd*(1-rd/mm)*.6;ay+=ax*0+ax*side*w*0+Math.cos(a)*side*w-ry/rd*(1-rd/mm)*.6}}const al=Math.hypot(ax,ay)||1;ax/=al;ay/=al;e.x=cl(e.x+ax*sp,10,W-10);e.y=cl(e.y+ay*sp,10,W-10);push(e,e.r);if(e.atk>0)e.atk--;else if(e.dm&&d<P.r+e.r){e.atk=40;hurt(e.dm*ds)}else if(e.dm&&P.pets.length){for(const s of P.pets){if(Math.hypot(s.x-e.x,s.y-e.y)<s.r+e.r){const pd=e.dm*ds*.6;s.hp-=pd;e.atk=40;ft(s.x,s.y-10,'-'+Math.floor(pd),'#ffb3c1',10);break}}}}
+for(let i=IT.length-1;i>=0;i--){const it=IT[i],d=dist(P,it);if(d<P.mag||it.f){it.x+=(P.x-it.x)*.14;it.y+=(P.y-it.y)*.14}
+if(d<P.r+8){IT.splice(i,1);if(it.k=='xp')gainXp(it.v);else if(it.k=='gold'){const g=Math.floor(it.v*P.s.gold);run+=g;G.gold+=g;snd(900,.05,'sine')}else if(it.k=='heart')P.hp=Math.min(P.maxHp,P.hp+it.v);else IT.forEach(o=>o.f=1);if(S!='play')break}}
+for(let i=CH.length-1;i>=0&&S=='play';i--)if(Math.hypot(P.x-CH[i].x,P.y-CH[i].y)<P.r+16){CH.splice(i,1);chest();break}
+PT.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.a-=.03});PT=PT.filter(p=>p.a>0);FT.forEach(f=>{f.y-=.8;f.l--});FT=FT.filter(f=>f.l>0);FX.forEach(f=>f.r+=9);FX=FX.filter(f=>f.r<f.m);
+if(fr%5==0)hud();if(fr%180==0)save();if(P.hp<=0&&S=='play'&&!god)end(false)}
+function hud(){const p=P,mpu=p.h[3]=='fire'||p.h[3]=='ice',bar=(l,v,m,c)=>`<div class=bar><i style="width:${cl(v/m*100,0,100)}%;background:${c}"></i><span>${l} ${Math.floor(v)}/${Math.floor(m)}</span></div>`;
+$('hud').innerHTML=`<b>${p.h[0]}</b>・${p.h[1]} Lv.${p.level} ⏱${Math.floor(T/60)}:${String(T%60).padStart(2,'0')}${bar('生命',p.hp,p.maxHp,'#e74c3c')}${mpu?bar('魔力',p.mp,50,'#3498db'):''}${bar('經驗',p.xp,p.nx,'#f1c40f')}${bar('大招',p.ult,100,'#e67e22')}💰金幣 ${run}　⚔擊殺 ${kills}<br>💥攻擊 ${Math.floor(p.pw)}　🛡防禦 ${+p.def.toFixed(1)}　👟速度 ${p.spd.toFixed(1)}<br>🎒裝備：${p.eq.map(e=>e.n).join('、')||'無'}<br><span style="color:#ff6b6b">${T>=600?'👹 擊敗最終BOSS！':'👹 下個BOSS：'+(nextBoss-T)+'秒'}</span>`;
+const ub=$('ub');ub.classList.toggle('dis',p.ult<100);ub.innerHTML=p.ult>=100?'⚡<small>大招</small>':'<small>大招<br>'+Math.floor(p.ult)+'%</small>'}
+function hud0(){const p=P,mpu=p.h[3]=='fire'||p.h[3]=='ice',bar=(v,c)=>`<div class=bar><i style="width:${cl(v*100,0,100)}%;background:${c}"></i></div>`;
+$('hud').innerHTML=`<b>${p.h[0]}</b> Lv.${p.level} ⏱${Math.floor(T/60)}:${String(T%60).padStart(2,'0')}${bar(p.hp/p.maxHp,'#e74c3c')}${mpu?bar(p.mp/50,'#3498db'):''}${bar(p.xp/p.nx,'#f1c40f')}${bar(p.ult/100,'#e67e22')}💰${run} ⚔${kills}<br>❤${Math.ceil(p.hp)}/${p.maxHp} 💥${Math.floor(p.pw)} 🛡${+p.def.toFixed(1)}<br>🎒${p.eq.map(e=>e.n).join('、')||'無'}<br><span style="color:#ff6b6b">${T>=600?'擊敗最終BOSS！':'下個BOSS：'+(nextBoss-T)+'s'}</span>`;$('ub').classList.toggle('dis',p.ult<100)}
+
+/* 繪製 */
+function draw(){const w=cv.width,h=cv.height;ctx.clearRect(0,0,w,h);cam.x=P.x-w/2;cam.y=P.y-h/2;ctx.save();ctx.translate(-Math.round(cam.x),-Math.round(cam.y));
+ctx.fillStyle='#1c130d';ctx.fillRect(0,0,W,W);ctx.strokeStyle='#261a12';ctx.lineWidth=1;ctx.beginPath();const x0=Math.max(0,Math.floor(cam.x/50)*50),x1=Math.min(W,cam.x+w+50),y0=Math.max(0,Math.floor(cam.y/50)*50),y1=Math.min(W,cam.y+h+50);for(let x=x0;x<=x1;x+=50){ctx.moveTo(x,y0);ctx.lineTo(x,y1)}for(let y=y0;y<=y1;y+=50){ctx.moveTo(x0,y);ctx.lineTo(x1,y)}ctx.stroke();ctx.strokeStyle='#721c24';ctx.lineWidth=6;ctx.strokeRect(0,0,W,W);
+HZ.forEach(o=>{if(o.k=='mud'||o.k=='spring'){ctx.fillStyle=o.k=='mud'?'rgba(80,50,20,.45)':'rgba(46,204,113,.3)';ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,6.3);ctx.fill()}else if(o.k=='spike'){ctx.fillStyle=o.cd>0?'#c0392b':'#7f8c8d';ctx.fillRect(o.x-o.r,o.y-o.r,o.r*2,o.r*2)}else spr(SP.barrel,o.x,o.y)});
+RK.forEach(k=>{ctx.save();ctx.translate(k.x,k.y);ctx.scale(k.s*(k.f?-1:1),k.s);ctx.drawImage(SP.rock,-SP.rock.width/2,-SP.rock.height/2);ctx.restore()});CH.forEach(c=>spr(SP.chest,c.x,c.y));IT.forEach(i=>{if(i.k=='gold')spr(SP.coin,i.x,i.y);else if(i.k=='xp')spr(SP.gem,i.x,i.y);else{ctx.font='16px sans-serif';ctx.fillText(i.k=='heart'?'❤️':'🧲',i.x-8,i.y+6)}});
+P.pets.forEach(s=>{spr(SP.pet[s.k],s.x,s.y,s.face<0);ctx.fillStyle='#000';ctx.fillRect(s.x-10,s.y-16,20,3);ctx.fillStyle='#ff9ff3';ctx.fillRect(s.x-10,s.y-16,20*Math.max(0,s.hp/s.mx),3)});
+E.forEach(e=>{const s=e.boss?SP.boss[e.bi]:SP[e.ty];if(e.sl>0)ctx.globalAlpha=.7;if(e.el){ctx.shadowColor='#ffd700';ctx.shadowBlur=10}if(e.sm){ctx.save();ctx.translate(e.x,e.y);ctx.scale(.6,.6);ctx.drawImage(s,-s.width/2,-s.height/2);ctx.restore()}else spr(s,e.x,e.y,e.face<0);ctx.shadowBlur=0;ctx.globalAlpha=1;
+const bw=e.boss?70:22,by=e.y-(e.boss?34:s.height/2+4);ctx.fillStyle='#000';ctx.fillRect(e.x-bw/2,by,bw,e.boss?6:3);ctx.fillStyle=e.boss?'#e74c3c':e.el?'#ffd700':'#2ecc71';ctx.fillRect(e.x-bw/2,by,Math.max(0,e.hp/e.mx)*bw,e.boss?6:3);if(e.boss){ctx.fillStyle='#fff';ctx.font='11px sans-serif';ctx.fillText(e.name,e.x-40,by-4)}});
+ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(P.x,P.y+15,10,4,0,0,6.3);ctx.fill();
+if(!(P.hurt>0&&fr%4<2)){if(god||P.inv>20){ctx.shadowColor='#ffd700';ctx.shadowBlur=15}spr(SP.h[G.sel],P.x,P.y,P.face<0);ctx.shadowBlur=0}
+SW.forEach(s=>{const t=1-s.life/s.max,a0=s.a-s.arc/2,cur=a0+s.arc*t;ctx.save();ctx.translate(P.x,P.y);ctx.strokeStyle=s.col;ctx.globalAlpha=.4*(s.life/s.max)+.15;ctx.lineWidth=s.ty=='dagger'?4:11;ctx.beginPath();ctx.arc(0,0,s.rg*.8,a0,cur);ctx.stroke();ctx.globalAlpha=1;ctx.rotate(cur);ctx.fillStyle=s.col;ctx.fillRect(8,-s.th/2,s.rg-12,s.th);ctx.fillStyle='#fff';ctx.fillRect(s.rg-8,-s.th/2,6,s.th);ctx.restore()});
+B.forEach(b=>{ctx.save();if(b.wave){ctx.strokeStyle=`rgba(255,127,80,${Math.max(.1,.7-b.r/b.max*.6)})`;ctx.lineWidth=4;ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,6.3);ctx.stroke()}else if(b.en){ctx.fillStyle='#ff4757';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,6.3);ctx.fill()}else if(b.ty=='fire'){ctx.fillStyle='#ff4757';ctx.beginPath();ctx.arc(b.x,b.y,b.r+2,0,6.3);ctx.fill();ctx.fillStyle='#ffd36b';ctx.beginPath();ctx.arc(b.x,b.y,b.r-1,0,6.3);ctx.fill()}else{ctx.translate(b.x,b.y);ctx.rotate(b.a);ctx.fillStyle=b.col;ctx.fillRect(-8,-1.5,16,3);ctx.fillStyle='#fff';ctx.fillRect(6,-3,4,6)}ctx.restore()});
+FX.forEach(f=>{ctx.strokeStyle=`rgba(255,215,0,${1-f.r/f.m})`;ctx.lineWidth=5;ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,6.3);ctx.stroke()});
+PT.forEach(p=>{ctx.globalAlpha=p.a;ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,3,3)});ctx.globalAlpha=1;FT.forEach(f=>{ctx.fillStyle=f.c;ctx.font=`bold ${f.s}px sans-serif`;ctx.fillText(f.t,f.x,f.y)});ctx.restore();
+const m=$('mm').getContext('2d'),k=90/W;m.clearRect(0,0,90,90);m.fillStyle='#2ecc71';m.fillRect(P.x*k-1,P.y*k-1,3,3);E.forEach(e=>{m.fillStyle=e.boss?'#f0f':'#e74c3c';m.fillRect(e.x*k,e.y*k,e.boss?5:2,e.boss?5:2)});m.fillStyle='#666';RK.forEach(r=>m.fillRect(r.x*k-1,r.y*k-1,2,2));m.fillStyle='#ffd700';CH.forEach(c=>m.fillRect(c.x*k-1,c.y*k-1,4,4))}
+
+/* 輸入 */
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=1;if(k=='escape')pz();if(e.code=='Space'){e.preventDefault();ult()}if(e.key=='~'||e.key=='`')$('ch').style.display=$('ch').style.display=='block'||!P?'none':'block'});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);addEventListener('resize',rsz);addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{save();if(document.hidden&&S=='play')pz()});
+(function(){const jw=$('js'),st=jw.firstElementChild;let tid=null,sx=0,sy=0;const mv=(x,y)=>{let dx=x-sx,dy=y-sy,d=Math.hypot(dx,dy);if(d>35){dx=dx/d*35;dy=dy/d*35}st.style.left=30+dx+'px';st.style.top=30+dy+'px';jv={x:dx/35,y:dy/35}};
+jw.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];tid=t.identifier;const r=jw.getBoundingClientRect();sx=r.left+r.width/2;sy=r.top+r.height/2;mv(t.clientX,t.clientY)},{passive:false});
+addEventListener('touchmove',e=>{if(tid===null)return;for(const t of e.changedTouches)if(t.identifier===tid){e.preventDefault();mv(t.clientX,t.clientY)}},{passive:false});
+const en=e=>{for(const t of e.changedTouches)if(t.identifier===tid){tid=null;jv={x:0,y:0};st.style.left=st.style.top='30px'}};addEventListener('touchend',en);addEventListener('touchcancel',en)})();
+(function(){const g=$('g'),jw=$('js'),st=jw.firstElementChild;let tid=null,sx=0,sy=0;
+const mv=(x,y)=>{let dx=x-sx,dy=y-sy,d=Math.hypot(dx,dy);if(d>40){dx=dx/d*40;dy=dy/d*40}st.style.left=30+dx+'px';st.style.top=30+dy+'px';jv={x:dx/40,y:dy/40}};
+const rs=()=>{tid=null;jv={x:0,y:0};st.style.left=st.style.top='30px';jw.style.display='none'};window.joyReset=rs;
+g.addEventListener('touchstart',e=>{if(S!='play'||tid!==null||e.target.closest('button'))return;const r=g.getBoundingClientRect();for(const t of e.changedTouches){if(t.clientX-r.left>r.width*.62)continue;tid=t.identifier;sx=t.clientX;sy=t.clientY;jw.style.left=(sx-r.left-50)+'px';jw.style.top=(sy-r.top-50)+'px';jw.style.bottom='auto';jw.style.display='block';mv(sx,sy);e.preventDefault();break}},{passive:false});
+addEventListener('touchmove',e=>{if(tid===null)return;for(const t of e.changedTouches)if(t.identifier===tid){e.preventDefault();mv(t.clientX,t.clientY)}},{passive:false});
+const en=e=>{for(const t of e.changedTouches)if(t.identifier===tid)rs()};addEventListener('touchend',en);addEventListener('touchcancel',en);
+window.hint=()=>{const t=$('tp'),m='ontouchstart' in window||navigator.maxTouchPoints>0;t.innerHTML=m?'👆 左半螢幕按住拖曳＝移動（搖桿跟著手指出現）<br>⚡ 右下角＝大招（能量滿才能放）':'⌨ WASD/方向鍵＝移動　空白鍵＝大招　Esc＝暫停';t.style.display='block';clearTimeout(window._th);window._th=setTimeout(()=>t.style.display='none',9000)}})();
+if(G.achV!=2){for(const k in G.ach)if(G.ach[k]==1)G.ach[k]=2;G.achV=2}
+if(Object.values(G.up).some(v=>typeof v=='number')){let ref=0;for(const k in G.up){const l=G.up[k];if(typeof l=='number'&&UP[k])for(let i=0;i<l;i++)ref+=Math.floor(UP[k][2]*Math.pow(1.5,i))}G.gold+=ref;G.up={}}
+save();$('g').addEventListener('scroll',fixScroll);addEventListener('scroll',fixScroll);
+rsz();build();menu();
+</script></body></html>
